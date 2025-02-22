@@ -1,0 +1,17 @@
+{
+  "name": "whats-going-on",
+  "version": "1.0.0",
+  "description": "Multitrack player for Marvin Gaye's 'What's Going On'",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "bun server.js",
+    "dev": "bun --watch server.js"
+  },
+  "dependencies": {
+    "lucide": "^0.476.0"
+  },
+  "devDependencies": {
+    "bun": "^1.2.4"
+  }
+}

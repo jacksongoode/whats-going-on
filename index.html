@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multitrack Player</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="transport">
+            <div class="loading-container">
+                <span class="loading-status">Initializing...</span>
+                <span class="loading-count"></span>
+                <div class="loading-bar">
+                    <div class="loading-progress"></div>
+                </div>
+            </div>
+            <div class="timeline-container">
+                <button class="play-pause-button">
+                    <svg class="play-icon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <svg class="pause-icon" viewBox="0 0 24 24">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                </button>
+                <div class="timeline" role="slider" aria-label="Playback progress">
+                    <div class="progress-bar"></div>
+                    <div class="playhead"></div>
+                </div>
+                <div class="time-display">
+                    <span class="current-time">0:00</span> / <span class="duration">0:00</span>
+                </div>
+                <button class="reverb-toggle" title="Toggle Reverb">
+                    <svg class="reverb-icon" viewBox="0 0 24 24">
+                        <path d="M12 4.5C7.3 4.5 3.5 8.3 3.5 13c0 2.5 1.1 4.7 2.8 6.2.3.3.3.8 0 1.1-.3.3-.8.3-1.1 0C3.2 18.7 2 16 2 13c0-5.5 4.5-10 10-10s10 4.5 10 10c0 3-1.2 5.7-3.2 7.3-.3.3-.8.3-1.1 0-.3-.3-.3-.8 0-1.1 1.7-1.5 2.8-3.7 2.8-6.2 0-4.7-3.8-8.5-8.5-8.5zM12 16c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3zm0-4.5c-.8 0-1.5.7-1.5 1.5s.7 1.5 1.5 1.5 1.5-.7 1.5-1.5-.7-1.5-1.5-1.5z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="tracks-container">
+            <!-- Track template:
+            <div class="track">
+                <div class="track-name">Track Name</div>
+                <div class="track-controls">
+                    <div class="knob-container">
+                        <div class="knob-icons">
+                            <i data-feather="volume-1"></i>
+                            <i data-feather="volume-2"></i>
+                        </div>
+                        <div class="knob" data-type="gain"></div>
+                        <div class="knob-label">Gain</div>
+                    </div>
+                    <div class="knob-container">
+                        <div class="knob-icons">
+                            <i data-feather="chevron-left"></i>
+                            <i data-feather="chevron-right"></i>
+                        </div>
+                        <div class="knob" data-type="pan"></div>
+                        <div class="knob-label">Pan</div>
+                    </div>
+                </div>
+            </div>
+            -->
+        </div>
+    </div>
+    <script src="app.js"></script>
+    <script>
+        // Initialize Feather icons after the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            feather.replace();
+        });
+    </script>
+</body>
+</html>

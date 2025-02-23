@@ -6,9 +6,9 @@ class MultitrackPlayer {
         // Track definitions need to be initialized first
         this.tracks = [
             { path: 'public/assets/tracks/main_vox_2.ogg', name: 'Lead Vocals', gain: 1.0, pan: 0 },
-            { path: 'public/assets/tracks/main_vox_1.ogg', name: 'Lead Vocals 2', gain: 0.8, pan: 0 },
+            { path: 'public/assets/tracks/main_vox_1.ogg', name: 'Lead Vocals 2', gain: 0.75, pan: 0 },
             { path: 'public/assets/tracks/bvox_1.ogg', name: 'Background Vocals', gain: 0.4, pan: -0.2 },
-            { path: 'public/assets/tracks/clicks_n_vox_bits.ogg', name: 'Snaps & Vocals', gain: 0.5, pan: 0 },
+            { path: 'public/assets/tracks/clicks_n_vox_bits.ogg', name: 'Snaps & Vocals', gain: 0.4, pan: -0.15 },
             { path: 'public/assets/tracks/bass.ogg', name: 'Bass', gain: 1.0, pan: 0 },
             { path: 'public/assets/tracks/gtr_1.ogg', name: 'Guitar 1', gain: 0.6, pan: -0.35 },
             { path: 'public/assets/tracks/gtr_2.ogg', name: 'Guitar 2', gain: 0.4, pan: -0.5 },
@@ -54,6 +54,14 @@ class MultitrackPlayer {
     }
 
     setupInitialUI() {
+        // Spacebar handler (simple version)
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.state.isPlaying ? this.pause() : this.play();
+            }
+        });
+
         // Only setup the basic UI elements (play button, timeline, etc)
         this.elements.tracks.innerHTML = '';
 
@@ -540,8 +548,6 @@ class MultitrackPlayer {
     updateUI() {
         this.elements.playButton.classList.toggle('playing', this.state.isPlaying);
         this.elements.loading.style.display = this.state.isReady ? 'none' : 'block';
-
-        // Add this line to toggle the animation
         document.querySelector('.title').classList.toggle('playing', this.state.isPlaying);
     }
 
@@ -571,12 +577,12 @@ class MultitrackPlayer {
         this.wetGain = this.audioContext.createGain();
 
         // Motown-style settings
-        this.preDelay.delayTime.value = 0.03; // 50ms pre-delay
-        this.dryGain.gain.value = 0.8;
-        this.wetGain.gain.value = 0.2;
+        this.preDelay.delayTime.value = 0.03;
+        this.dryGain.gain.value = 0.85;
+        this.wetGain.gain.value = 0.15;
 
         // Generate noise tail
-        this.renderReverbTail(2.0); // 1.2 second decay
+        this.renderReverbTail(1.8);
 
         // Connections
         this.preDelay.connect(this.convolver);

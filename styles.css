@@ -500,17 +500,13 @@ body {
   color: #bbb;
   font-size: 0.9rem;
   padding: 0 1rem;
-  max-height: 0;
   overflow: hidden;
-  transition:
-    max-height 0.3s ease,
-    opacity 0.2s ease;
+  transition: opacity 0.2s ease;
   opacity: 0;
 }
 
 .title-container:hover .description,
 .title-container.active .description {
-  max-height: 200px;
   opacity: 1;
   margin-top: 0.5rem;
 }
@@ -520,11 +516,9 @@ body {
     cursor: pointer;
   }
   .description {
-    max-height: 0;
     opacity: 0;
   }
   .title-container.active .description {
-    max-height: 200px;
     opacity: 1;
     margin-top: 0.5rem;
   }

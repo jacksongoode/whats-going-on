@@ -7,19 +7,19 @@ class MultitrackPlayer {
         this.tracks = [
             { path: 'public/assets/tracks/main_vox_2.ogg', name: 'Lead Vocals', gain: 1.0, pan: 0 },
             { path: 'public/assets/tracks/main_vox_1.ogg', name: 'Lead Vocals 2', gain: 0.75, pan: 0 },
-            { path: 'public/assets/tracks/bvox_1.ogg', name: 'Background Vocals', gain: 0.4, pan: -0.2 },
+            { path: 'public/assets/tracks/bvox_1.ogg', name: 'Background Vocals', gain: 0.35, pan: -0.2 },
             { path: 'public/assets/tracks/clicks_n_vox_bits.ogg', name: 'Snaps & Vocals', gain: 0.4, pan: -0.15 },
-            { path: 'public/assets/tracks/bass.ogg', name: 'Bass', gain: 1.0, pan: 0 },
+            { path: 'public/assets/tracks/bass.ogg', name: 'Bass', gain: 0.75, pan: 0 },
             { path: 'public/assets/tracks/gtr_1.ogg', name: 'Guitar 1', gain: 0.6, pan: -0.35 },
             { path: 'public/assets/tracks/gtr_2.ogg', name: 'Guitar 2', gain: 0.4, pan: -0.5 },
             { path: 'public/assets/tracks/main_kit.ogg', name: 'Drum Kit', gain: 0.85, pan: 0.1 },
-            { path: 'public/assets/tracks/kit_2.ogg', name: 'Conga', gain: 0.4, pan: -0.35 },
+            { path: 'public/assets/tracks/kit_2.ogg', name: 'Conga', gain: 0.3, pan: 0.15 },
             { path: 'public/assets/tracks/perc.ogg', name: 'Bongo', gain: 0.6, pan: -0.45 },
             { path: 'public/assets/tracks/piano.ogg', name: 'Piano', gain: 0.3, pan: 0.1 },
             { path: 'public/assets/tracks/vibes.ogg', name: 'Vibraphone', gain: 0.5, pan: 0.75 },
             { path: 'public/assets/tracks/sax.ogg', name: 'Saxophone', gain: 0.7, pan: -0.6 },
-            { path: 'public/assets/tracks/strings_1l.ogg', name: 'Strings L', gain: 0.30, pan: -0.5 },
-            { path: 'public/assets/tracks/strings_2r.ogg', name: 'Strings R', gain: 0.30, pan: 0.5 },
+            { path: 'public/assets/tracks/strings_1l.ogg', name: 'Strings L', gain: 0.30, pan: -0.55 },
+            { path: 'public/assets/tracks/strings_2r.ogg', name: 'Strings R', gain: 0.30, pan: 0.55 },
             { path: 'public/assets/tracks/strings_3m.ogg', name: 'Strings M', gain: 0.30, pan: 0 }
         ];
 
@@ -188,16 +188,26 @@ class MultitrackPlayer {
                 // Create and connect audio nodes
                 const gainNode = this.audioContext.createGain();
                 const panNode = this.audioContext.createStereoPanner();
+                const dryGain = this.audioContext.createGain();
+                const wetGain = this.audioContext.createGain();
+                const preDelay = this.audioContext.createDelay(0.1);
+                const convolver = this.audioContext.createConvolver();
 
-                // Set initial values here
+                // Set initial values
                 gainNode.gain.value = track.gain;
                 panNode.pan.value = track.pan;
+                preDelay.delayTime.value = 0.03;
+                dryGain.gain.value = 0.85;
+                wetGain.gain.value = 0.15;
 
+                // Connect nodes
                 gainNode.connect(panNode);
-
-                // Connect to reverb by default since reverbEnabled is true
-                panNode.connect(this.dryGain);
-                panNode.connect(this.preDelay);
+                panNode.connect(dryGain);
+                panNode.connect(preDelay);
+                preDelay.connect(convolver);
+                convolver.connect(wetGain);
+                dryGain.connect(this.audioContext.destination);
+                wetGain.connect(this.audioContext.destination);
 
                 // Update loading progress
                 loadedCount++;
@@ -210,6 +220,10 @@ class MultitrackPlayer {
                     source: null,
                     gainNode,
                     panNode,
+                    dryGain,
+                    wetGain,
+                    preDelay,
+                    convolver,
                     isSolo: false,
                     gain: track.gain,
                     pan: track.pan
@@ -570,25 +584,8 @@ class MultitrackPlayer {
     }
 
     createReverbNodes() {
-        // Core nodes
-        this.convolver = this.audioContext.createConvolver();
-        this.preDelay = this.audioContext.createDelay(0.1);
-        this.dryGain = this.audioContext.createGain();
-        this.wetGain = this.audioContext.createGain();
-
-        // Motown-style settings
-        this.preDelay.delayTime.value = 0.03;
-        this.dryGain.gain.value = 0.85;
-        this.wetGain.gain.value = 0.15;
-
-        // Generate noise tail
+        // Generate shared reverb buffer
         this.renderReverbTail(1.8);
-
-        // Connections
-        this.preDelay.connect(this.convolver);
-        this.convolver.connect(this.wetGain);
-        this.wetGain.connect(this.audioContext.destination);
-        this.dryGain.connect(this.audioContext.destination);
     }
 
     async renderReverbTail(duration) {
@@ -614,7 +611,7 @@ class MultitrackPlayer {
         // Shape with filters
         const hpFilter = offlineContext.createBiquadFilter();
         hpFilter.type = 'highpass';
-        hpFilter.frequency.value = 500;
+        hpFilter.frequency.value = 800;
 
         const lpFilter = offlineContext.createBiquadFilter();
         lpFilter.type = 'lowpass';
@@ -629,7 +626,7 @@ class MultitrackPlayer {
         // Render
         noise.start(0);
         const renderedBuffer = await offlineContext.startRendering();
-        this.convolver.buffer = renderedBuffer;
+        this.reverbBuffer = renderedBuffer;
     }
 
     toggleReverb() {
@@ -640,8 +637,8 @@ class MultitrackPlayer {
             track.panNode.disconnect();
 
             if(this.reverbEnabled) {
-                track.panNode.connect(this.dryGain);
-                track.panNode.connect(this.preDelay);
+                track.panNode.connect(track.dryGain);
+                track.panNode.connect(track.preDelay);
             } else {
                 track.panNode.connect(this.audioContext.destination);
             }

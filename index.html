@@ -1,51 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>What's Going On?</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="public/assets/img/garfield-bg.png" type="image/png">
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="icon"
+      href="public/assets/img/garfield-bg.png"
+      type="image/png"
+    />
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="title-container">
-            <h1 class="title">What's Going On?</h1>
-            <img src="public/assets/img/garfield-bg.png" alt="Garfield" class="garfield-icon">
+      <div class="title-container">
+        <div class="title-row">
+          <h1 class="title">What's Going On?</h1>
+          <img
+            src="public/assets/img/garfield-bg.png"
+            alt="Garfield"
+            class="garfield-icon"
+          />
         </div>
-        <div class="transport">
-            <div class="loading-container">
-                <span class="loading-status">Initializing...</span>
-                <span class="loading-count"></span>
-                <div class="loading-bar">
-                    <div class="loading-progress"></div>
-                </div>
-            </div>
-            <div class="timeline-container">
-                <button class="play-pause-button" aria-label="Play/Pause">
-                    <svg class="play-icon" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    <svg class="pause-icon" viewBox="0 0 24 24">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                    </svg>
-                </button>
-                <div class="timeline" role="slider" aria-label="Playback progress">
-                    <div class="progress-bar"></div>
-                    <div class="playhead"></div>
-                </div>
-                <div class="time-display">
-                    <span class="current-time">0:00</span> / <span class="duration">0:00</span>
-                </div>
-                <button class="reverb-toggle" title="Toggle Reverb">
-                    <i data-feather="radio"></i>
-                </button>
-            </div>
+        <div class="description">
+          Born from Four Tops bassist Obie Benson's witness of police violence
+          against Berkeley protesters and harrowing letters from Vietnam from
+          Gaye's brother Frankie. "What's Going On" channeled Marvin Gaye's own
+          personal grief after duet partner Tammi Terrell's death into
+          collective catharsis. Its jazz-infused arrangements and layered vocals
+          - recorded in one middnight take - defied Motown's apolitical formula,
+          bringing soul music's first protest concept album through one enduring
+          question.
         </div>
+      </div>
+      <div class="transport">
+        <div class="loading-container">
+          <span class="loading-status">Initializing...</span>
+          <span class="loading-count"></span>
+          <div class="loading-bar">
+            <div class="loading-progress"></div>
+          </div>
+        </div>
+        <div class="timeline-container">
+          <button class="play-pause-button" aria-label="Play/Pause">
+            <svg class="play-icon" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <svg class="pause-icon" viewBox="0 0 24 24">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+            </svg>
+          </button>
+          <div class="timeline" role="slider" aria-label="Playback progress">
+            <div class="progress-bar"></div>
+            <div class="playhead"></div>
+          </div>
+          <div class="time-display">
+            <span class="current-time">0:00</span> /
+            <span class="duration">0:00</span>
+          </div>
+          <button class="reverb-toggle" title="Toggle Reverb">
+            <i data-feather="radio"></i>
+          </button>
+        </div>
+      </div>
 
-        <div class="tracks-container">
-            <!-- Track template:
+      <div class="tracks-container">
+        <!-- Track template:
             <div class="track">
                 <div class="track-name">Track Name</div>
                 <div class="track-controls">
@@ -68,14 +89,14 @@
                 </div>
             </div>
             -->
-        </div>
+      </div>
     </div>
     <script src="app.js"></script>
     <script>
-        // Initialize Feather icons after the DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            feather.replace();
-        });
+      // Initialize Feather icons after the DOM is loaded
+      document.addEventListener("DOMContentLoaded", () => {
+        feather.replace();
+      });
     </script>
-</body>
+  </body>
 </html>

@@ -137,6 +137,7 @@ class MultitrackPlayer {
                 await this.setupTrackUI();
                 this.state.isReady = true;
                 this.updateUI();
+                document.querySelector('.garfield-icon').classList.add('loaded');
             } catch (error) {
                 console.error('Error initializing audio:', error);
                 this.updateLoadingStatus('Error loading audio system');

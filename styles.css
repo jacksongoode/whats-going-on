@@ -36,30 +36,99 @@ body {
     gap: 1rem;
 }
 
+/* Common interactive element styles */
+.play-pause-button,
+.reverb-toggle,
+.knob {
+    background-color: #666;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Unified hover states */
+.play-pause-button:hover:not(.disabled),
+.reverb-toggle:hover,
+.knob:hover {
+    background-color: #777;
+    transform: scale(1.05);
+}
+
+/* Unified active/enabled states */
+.play-pause-button.playing,
+.reverb-toggle.active,
+.knob:active {
+    background-color: #888;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+}
+
+/* Update specific button styles while maintaining common theme */
 .play-pause-button {
     width: 36px;
     height: 36px;
     border-radius: 50%;
     border: none;
-    background-color: #666;
-    color: white;
-    cursor: pointer;
     padding: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
 }
 
-.play-pause-button:hover:not(.disabled) {
-    background-color: #777;
-    transform: scale(1.05);
+.reverb-toggle {
+    border: none;
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
+.knob {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    position: relative;
+    transform-origin: center center;
+}
+
+/* Remove old individual hover/active states */
+.reverb-toggle:hover {
+    color: #fff;
+}
+
+.reverb-toggle.active {
+    color: #fff;
+}
+
+/* Keep necessary specific styles */
 .play-pause-button.disabled {
     background-color: #666;
     cursor: not-allowed;
     opacity: 0.7;
+    transform: none;
+}
+
+.knob::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 3px;
+    background-color: #333;
+    transform: translateX(-50%);
+}
+
+.knob::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 10px;
+    background-color: white;
+    transform: translate(-50%, -50%);
+    transform-origin: center 1px;
 }
 
 .play-pause-button svg {
@@ -124,8 +193,9 @@ body {
 .tracks-container {
     background-color: #2a2a2a;
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid #444;
+    position: relative;
 }
 
 .track {
@@ -172,6 +242,7 @@ body {
     gap: 0.25rem;
     position: relative;
     padding: 0.25rem 1rem;
+    touch-action: none;
 }
 
 .knob-icons {
@@ -193,40 +264,6 @@ body {
     margin-top: 2px;
 }
 
-.knob {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background-color: #666;
-    position: relative;
-    cursor: pointer;
-    transform-origin: center center;
-    transition: transform 0.1s ease;
-}
-
-.knob::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 2px;
-    height: 3px;
-    background-color: #333;
-    transform: translateX(-50%);
-}
-
-.knob::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 2px;
-    height: 10px;
-    background-color: white;
-    transform: translate(-50%, -50%);
-    transform-origin: center 1px;
-}
-
 .knob-label {
     font-size: 0.7rem;
     color: #aaa;
@@ -241,6 +278,19 @@ body {
     padding: 4px 8px !important;
     border-radius: 4px !important;
     font-size: 12px !important;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+/* Add positioning logic based on track position */
+.track:first-child .knob-tooltip {
+    bottom: calc(100% + 5px);
+}
+
+.track:not(:first-child) .knob-tooltip {
+    top: -25px;
 }
 
 /* Loading Container */
@@ -305,24 +355,6 @@ body {
     display: none;
 }
 
-.reverb-toggle {
-    background: none;
-    border: none;
-    padding: 6px;
-    cursor: pointer;
-    color: #bbb;
-    transition: color 0.2s ease;
-}
-
-.reverb-toggle:hover {
-    color: #fff;
-}
-
-.reverb-toggle.active {
-    color: #666;
-    background-color: #fff;
-}
-
 .reverb-icon {
     width: 24px;
     height: 24px;
@@ -337,4 +369,44 @@ body {
     font-size: 0.9rem;
     color: #bbb;
     min-width: 50px;
+}
+
+.dragging-knob {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.title {
+    color: #fff;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-weight: 300;
+}
+
+.title span {
+    display: inline-block;
+    transform: translateY(0);
+    transition: all 0.5s ease;
+}
+
+@keyframes wave-bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+.title.playing span {
+    animation: wave-bounce 2s ease-in-out infinite;
+}
+
+/* Make the transition back more pronounced */
+.title:not(.playing) span {
+    animation: none;
+    transform: translateY(0) !important; /* Force the final position */
+    transition: all 0.5s ease-out; /* Smooth transition when animation stops */
 }

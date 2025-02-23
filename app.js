@@ -1,58 +1,42 @@
 class MultitrackPlayer {
     constructor() {
-        // Initialize AudioContext and suspend immediately to comply with autoplay policies
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        this.audioContext.suspend();
+        // Show initial message immediately before anything else
+        document.querySelector('.loading-status').textContent = 'Click anywhere to begin...';
 
-        // Array to store track objects
-        this.tracks = [];
-
-        // Playback state variables
-        this.isPlaying = false;
-        this.startTime = 0;      // Reference time when playback started
-        this.currentTime = 0;    // Current playback position (in seconds)
-        this.duration = 0;       // Duration of the tracks (assumed same for all)
-        this.animationFrame = null;
-        this.isReady = false;
-        this.scheduledTime = null; // Track the scheduled start time
-
-        // Cached UI element references
-        this.elements = {
-            playPauseButton: null,
-            timeline: null,
-            progressBar: null,
-            playhead: null,
-            currentTimeDisplay: null,
-            durationDisplay: null,
-            loadingContainer: null,
-            loadingProgress: null,
-            loadingCount: null,
-            tracksContainer: null,
-            loadingStatus: null,
-            reverbToggle: null
-        };
-
-        // Track definitions with metadata
-        this.trackDefinitions = [
-            { path: 'tracks/main_vox_2.ogg', name: 'Lead Vocals', defaultGain: 1.0, defaultPan: 0 },
-            { path: 'tracks/main_vox_1.ogg', name: 'Lead Vocals 2', defaultGain: 0.7, defaultPan: 0 },
-            { path: 'tracks/bvox_1.ogg', name: 'Background Vocals', defaultGain: 0.4, defaultPan: 0 },
-            { path: 'tracks/clicks_n_vox_bits.ogg', name: 'Snaps & Vocals', defaultGain: 0.5, defaultPan: 0 },
-            { path: 'tracks/bass.ogg', name: 'Bass', defaultGain: 0.9, defaultPan: 0 },
-            { path: 'tracks/gtr_1.ogg', name: 'Guitar 1', defaultGain: 0.7, defaultPan: -0.3 },
-            { path: 'tracks/gtr_2.ogg', name: 'Guitar 2', defaultGain: 0.4, defaultPan: 0.3 },
-            { path: 'tracks/main_kit.ogg', name: 'Drum Kit', defaultGain: 0.85, defaultPan: 0 },
-            { path: 'tracks/kit_2.ogg', name: 'Conga', defaultGain: 0.5, defaultPan: -0.15 },
-            { path: 'tracks/perc.ogg', name: 'Bongo', defaultGain: 0.5, defaultPan: 0.2 },
-            { path: 'tracks/piano.ogg', name: 'Piano', defaultGain: 0.75, defaultPan: -0.1 },
-            { path: 'tracks/vibes.ogg', name: 'Vibraphone', defaultGain: 0.6, defaultPan: 0.1 },
-            { path: 'tracks/sax.ogg', name: 'Saxophone', defaultGain: 0.7, defaultPan: -0.2 },
-            { path: 'tracks/strings_1l.ogg', name: 'Strings L', defaultGain: 0.6, defaultPan: -0.7 },
-            { path: 'tracks/strings_2r.ogg', name: 'Strings R', defaultGain: 0.6, defaultPan: 0.7 },
-            { path: 'tracks/strings_3m.ogg', name: 'Strings M', defaultGain: 0.6, defaultPan: 0 }
+        // Track definitions need to be initialized first
+        this.tracks = [
+            { path: 'public/assets/tracks/main_vox_2.ogg', name: 'Lead Vocals', gain: 1.0, pan: 0 },
+            { path: 'public/assets/tracks/main_vox_1.ogg', name: 'Lead Vocals 2', gain: 0.7, pan: 0 },
+            { path: 'public/assets/tracks/bvox_1.ogg', name: 'Background Vocals', gain: 0.4, pan: 0 },
+            { path: 'public/assets/tracks/clicks_n_vox_bits.ogg', name: 'Snaps & Vocals', gain: 0.5, pan: 0 },
+            { path: 'public/assets/tracks/bass.ogg', name: 'Bass', gain: 0.9, pan: 0 },
+            { path: 'public/assets/tracks/gtr_1.ogg', name: 'Guitar 1', gain: 0.7, pan: -0.3 },
+            { path: 'public/assets/tracks/gtr_2.ogg', name: 'Guitar 2', gain: 0.4, pan: 0.3 },
+            { path: 'public/assets/tracks/main_kit.ogg', name: 'Drum Kit', gain: 0.85, pan: 0 },
+            { path: 'public/assets/tracks/kit_2.ogg', name: 'Conga', gain: 0.5, pan: -0.15 },
+            { path: 'public/assets/tracks/perc.ogg', name: 'Bongo', gain: 0.5, pan: 0.2 },
+            { path: 'public/assets/tracks/piano.ogg', name: 'Piano', gain: 0.7, pan: -0.15 },
+            { path: 'public/assets/tracks/vibes.ogg', name: 'Vibraphone', gain: 0.6, pan: 0.1 },
+            { path: 'public/assets/tracks/sax.ogg', name: 'Saxophone', gain: 0.7, pan: -0.2 },
+            { path: 'public/assets/tracks/strings_1l.ogg', name: 'Strings L', gain: 0.35, pan: -0.7 },
+            { path: 'public/assets/tracks/strings_2r.ogg', name: 'Strings R', gain: 0.35, pan: 0.7 },
+            { path: 'public/assets/tracks/strings_3m.ogg', name: 'Strings M', gain: 0.35, pan: 0 }
         ];
 
-        this.reverbEnabled = false;
+        this.state = {
+            isPlaying: false,
+            isReady: false,
+            currentTime: 0,
+            startTime: 0
+        };
+
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioNodes = [];
+        this.elements = {};
+        this.reverbEnabled = true;
+        this.cacheName = 'audio-cache-v1';
+
+        // Create reverb nodes immediately
         this.createReverbNodes();
 
         this.init();
@@ -61,284 +45,23 @@ class MultitrackPlayer {
     async init() {
         try {
             this.cacheElements();
-            await this.loadTracks();
-            this.setupUI();
+            this.setupInitialUI();
+            this.updateLoadingStatus('Click anywhere to load tracks...');
         } catch (error) {
-            console.error('Error during initialization:', error);
-            this.showErrorMessage('Failed to initialize the audio player');
+            console.error('Initial setup failed:', error);
+            this.updateLoadingStatus('Error during initialization');
         }
     }
 
-    cacheElements() {
-        this.elements = {
-            playPauseButton: document.querySelector('.play-pause-button'),
-            timeline: document.querySelector('.timeline'),
-            progressBar: document.querySelector('.progress-bar'),
-            playhead: document.querySelector('.playhead'),
-            currentTimeDisplay: document.querySelector('.current-time'),
-            durationDisplay: document.querySelector('.duration'),
-            loadingContainer: document.querySelector('.loading-container'),
-            loadingProgress: document.querySelector('.loading-progress'),
-            loadingCount: document.querySelector('.loading-count'),
-            tracksContainer: document.querySelector('.tracks-container'),
-            loadingStatus: document.querySelector('.loading-status'),
-            reverbToggle: document.querySelector('.reverb-toggle')
-        };
+    setupInitialUI() {
+        // Only setup the basic UI elements (play button, timeline, etc)
+        this.elements.tracks.innerHTML = '';
 
-        // Disable play button until tracks are loaded
-        this.elements.playPauseButton.disabled = true;
-        this.elements.playPauseButton.classList.add('disabled');
-    }
-
-    async loadTracks() {
-        const loadTrack = async (track) => {
+        // Setup play button handler
+        this.elements.playButton.addEventListener('click', async () => {
+            if (!this.state.isReady) return;
             try {
-                const response = await fetch(track.path);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-                const gainNode = this.audioContext.createGain();
-                const panNode = this.audioContext.createStereoPanner();
-                panNode.connect(this.audioContext.destination);
-                gainNode.connect(panNode);
-                return {
-                    ...track,
-                    buffer: audioBuffer,
-                    source: null,
-                    gainNode,
-                    panNode,
-                    isSolo: false,
-                    gain: track.defaultGain,
-                    pan: track.defaultPan
-                };
-            } catch (error) {
-                console.error(`Failed to load ${track.path}:`, error);
-                return null;
-            }
-        };
-
-        try {
-            this.updateLoadingStatus('Initializing...');
-            this.tracks = [];
-            const total = this.trackDefinitions.length;
-            let loadedCount = 0;
-
-            for (const trackDef of this.trackDefinitions) {
-                const currentNumber = loadedCount + 1;
-                this.elements.loadingCount.textContent = `${currentNumber}/${total}`;
-                this.updateLoadingStatus(trackDef.name);
-
-                const track = await loadTrack(trackDef);
-                if (track) {
-                    this.tracks.push(track);
-                }
-                loadedCount++;
-                const percent = Math.round((loadedCount / total) * 100);
-                this.elements.loadingProgress.style.width = `${percent}%`;
-            }
-
-            if (this.tracks.length === 0) {
-                throw new Error('No tracks were loaded successfully');
-            }
-
-            this.duration = this.tracks[0].buffer.duration;
-            this.isReady = true;
-            this.elements.playPauseButton.disabled = false;
-            this.elements.playPauseButton.classList.remove('disabled');
-            this.elements.loadingContainer.classList.add('hidden');
-
-        } catch (error) {
-            console.error('Error loading tracks:', error);
-            this.updateLoadingStatus('Failed to load tracks');
-            this.showErrorMessage(`Failed to load tracks: ${error.message}`);
-        }
-    }
-
-    async loadTrack(filePath) {
-        try {
-            const response = await fetch(filePath);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-            // Find the track definition to get default values
-            const trackDef = this.trackDefinitions.find(t => t.path === filePath) || {
-                defaultGain: 1,
-                defaultPan: 0
-            };
-
-            const track = {
-                buffer: audioBuffer,
-                name: filePath.split('/').pop().replace('.ogg', ''),
-                source: null,
-                gainNode: this.audioContext.createGain(),
-                panNode: this.audioContext.createStereoPanner(),
-                isSolo: false,
-                gain: trackDef.defaultGain,
-                pan: trackDef.defaultPan
-            };
-
-            // Connect the nodes: gainNode -> panNode -> destination
-            track.panNode.connect(this.dryGain);
-            track.gainNode.connect(track.panNode);
-
-            return track;
-        } catch (error) {
-            console.error(`Error loading track ${filePath}:`, error);
-            return null;
-        }
-    }
-
-    // Create new AudioBufferSourceNodes for all tracks
-    createSources() {
-        this.tracks.forEach(track => {
-            // Clean up existing source if any
-            if (track.source) {
-                try {
-                    track.source.stop();
-                    track.source.disconnect();
-                } catch (e) {
-                    // Ignore errors from already stopped sources
-                }
-            }
-
-            // Create a fresh source node
-            const source = this.audioContext.createBufferSource();
-            source.buffer = track.buffer;
-            source.connect(track.gainNode);
-            track.source = source;
-        });
-    }
-
-    async play() {
-        if (!this.isReady || this.isPlaying) return;
-
-        try {
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
-            }
-
-            // Create new source nodes for precise timing control
-            this.createSources();
-
-            const offset = this.currentTime;
-            const now = this.audioContext.currentTime;
-            const schedulingDelay = 0.03; // 30ms scheduling delay for stability
-            const startTime = now + schedulingDelay;
-
-            // Apply current gain and pan values
-            const hasSolo = this.tracks.some(track => track.isSolo);
-            this.tracks.forEach(track => {
-                const effectiveGain = hasSolo ? (track.isSolo ? track.gain : 0) : track.gain;
-                track.gainNode.gain.setValueAtTime(effectiveGain, startTime);
-                track.panNode.pan.setValueAtTime(track.pan, startTime);
-            });
-
-            // Start all tracks in perfect sync
-            this.tracks.forEach(track => {
-                if (track.source) {
-                    track.source.start(startTime, offset);
-                }
-            });
-
-            this.startTime = startTime - offset;
-            this.isPlaying = true;
-            this.elements.playPauseButton.classList.add('playing');
-
-            // Begin updating the playhead
-            if (this.animationFrame) {
-                cancelAnimationFrame(this.animationFrame);
-            }
-            this.updatePlayhead();
-        } catch (error) {
-            console.error('Error starting playback:', error);
-            await this.stopPlayback();
-        }
-    }
-
-    async pause() {
-        if (!this.isPlaying) return;
-        this.currentTime = this.audioContext.currentTime - this.startTime;
-        await this.stopPlayback(true);
-    }
-
-    async stopPlayback(isPause = false) {
-        try {
-            const now = this.audioContext.currentTime;
-
-            // Stop all sources together
-            const promises = this.tracks.map(track => {
-                if (track.source) {
-                    return new Promise(resolve => {
-                        try {
-                            track.source.stop(now);
-                            track.source.disconnect();
-                        } catch (e) {
-                            // Ignore errors from already stopped sources
-                        }
-                        track.source = null;
-                        resolve();
-                    });
-                }
-                return Promise.resolve();
-            });
-
-            await Promise.all(promises);
-
-            this.isPlaying = false;
-            this.elements.playPauseButton.classList.remove('playing');
-
-            if (this.animationFrame) {
-                cancelAnimationFrame(this.animationFrame);
-            }
-
-            if (!isPause) {
-                this.currentTime = 0;
-                this.updateSeekPosition(0);
-            }
-        } catch (error) {
-            console.error('Error during playback stop:', error);
-            this.isPlaying = false;
-            this.elements.playPauseButton.classList.remove('playing');
-        }
-    }
-
-    async seekTo(time, shouldResume = this.isPlaying) {
-        try {
-            const targetTime = Math.max(0, Math.min(time, this.duration));
-            const wasPlaying = this.isPlaying;
-
-            await this.stopPlayback(true);
-            this.currentTime = targetTime;
-            this.updateSeekPosition(this.currentTime / this.duration);
-
-            if (shouldResume) {
-                if (this.audioContext.state === 'suspended') {
-                    await this.audioContext.resume();
-                }
-                await this.play();
-            }
-        } catch (error) {
-            console.error('Error during seek:', error);
-            await this.stopPlayback(false);
-        }
-    }
-
-    setupUI() {
-        // Clear existing track UI elements
-        this.elements.tracksContainer.innerHTML = '';
-
-        // Create UI elements for each track
-        this.tracks.forEach((track, index) => this.createTrackUI(track, index));
-
-        // Setup play/pause button
-        this.elements.playPauseButton.addEventListener('click', async () => {
-            if (!this.isReady) return;
-            try {
-                if (this.isPlaying) {
+                if (this.state.isPlaying) {
                     await this.pause();
                 } else {
                     await this.play();
@@ -350,55 +73,179 @@ class MultitrackPlayer {
 
         // Setup timeline interaction
         let isDragging = false;
-        let wasPlaying = false; // Track original play state
+        let wasPlaying = false;
 
         this.elements.timeline.addEventListener('mousedown', (e) => {
             isDragging = true;
-            wasPlaying = this.isPlaying; // Capture state before any pause
-            if (this.isPlaying) {
+            wasPlaying = this.state.isPlaying;
+            if (this.state.isPlaying) {
                 this.pause();
             }
-            e.preventDefault(); // Prevent text selection during drag
+            handleTimelineInteraction(e);
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            const rect = this.elements.timeline.getBoundingClientRect();
-            const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            this.updateSeekPosition(position);
+            handleTimelineInteraction(e);
         });
 
-        document.addEventListener('mouseup', async (e) => {
+        document.addEventListener('mouseup', async () => {
             if (!isDragging) return;
             isDragging = false;
-
-            const rect = this.elements.timeline.getBoundingClientRect();
-            const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-
-            // Use captured play state instead of current isPlaying
-            await this.seekTo(position * this.duration, wasPlaying);
+            if (wasPlaying) {
+                await this.play();
+            }
         });
 
-        // Enable timeline seeking
-        this.elements.timeline.addEventListener('click', async (e) => {
-            if (!this.isReady) return;
-            const rect = this.elements.timeline.getBoundingClientRect();
-            const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            const wasPlaying = this.isPlaying; // Capture current state before seeking
-            await this.seekTo(position * this.duration, wasPlaying);
+        // Direct click handling for timeline
+        this.elements.timeline.addEventListener('click', (e) => {
+            if (!this.state.isReady) return;
+            handleTimelineInteraction(e);
         });
 
-        // Reverb toggle
-        this.elements.reverbToggle.addEventListener('click', () => this.toggleReverb());
+        const handleTimelineInteraction = (e) => {
+            const rect = this.elements.timeline.getBoundingClientRect();
+            const position = (e.clientX - rect.left) / rect.width;
+            const normalizedPosition = Math.max(0, Math.min(1, position));
+            this.seekTo(normalizedPosition * this.duration);
+        };
 
-        // Start playhead update loop
-        this.updatePlayhead();
+        // Wrap each letter in the title with a span, preserving spaces
+        const title = document.querySelector('.title');
+        title.innerHTML = title.textContent
+            .split('')
+            .map((char, i) =>
+                char === ' ' ? ' ' : `<span style="animation-delay: ${i * 0.1}s">${char}</span>`
+            )
+            .join('');
+    }
+
+    async initializeAudio() {
+        if (this.audioContext.state === 'suspended') {
+            try {
+                await this.audioContext.resume();
+                this.updateLoadingStatus('Loading audio tracks...');
+                await this.loadTracks();
+                await this.setupTrackUI();
+                this.state.isReady = true;
+                this.updateUI();
+            } catch (error) {
+                console.error('Error initializing audio:', error);
+                this.updateLoadingStatus('Error loading audio system');
+            }
+        }
+    }
+
+    async setupTrackUI() {
+        // Now create UI elements for each loaded track
+        this.audioNodes.forEach((track, index) => this.createTrackUI(track, index));
+
+        // Setup reverb toggle
+        this.elements.reverb.addEventListener('click', () => this.toggleReverb());
+    }
+
+    cacheElements() {
+        this.elements = {
+            playButton: document.querySelector('.play-pause-button'),
+            timeline: document.querySelector('.timeline'),
+            progress: document.querySelector('.progress-bar'),
+            playhead: document.querySelector('.playhead'),
+            timeDisplay: document.querySelector('.current-time'),
+            duration: document.querySelector('.duration'),
+            loading: document.querySelector('.loading-container'),
+            tracks: document.querySelector('.tracks-container'),
+            reverb: document.querySelector('.reverb-toggle'),
+            loadingCount: document.querySelector('.loading-count'),
+            loadingProgress: document.querySelector('.loading-progress')
+        };
+
+        // Set initial active state for reverb toggle
+        this.elements.reverb.classList.add('active');
+    }
+
+    async loadTracks() {
+        try {
+            this.updateLoadingStatus('Loading tracks...');
+            const total = this.tracks.length;
+            let loadedCount = 0;
+
+            // Helper: decode one track
+            const decodeTrack = async (track) => {
+                const response = await fetch(track.path);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+                // Create and connect audio nodes
+                const gainNode = this.audioContext.createGain();
+                const panNode = this.audioContext.createStereoPanner();
+                gainNode.connect(panNode);
+
+                // Connect to reverb by default since reverbEnabled is true
+                panNode.connect(this.dryGain);
+                panNode.connect(this.preDelay);
+
+                // Update loading progress
+                loadedCount++;
+                this.elements.loadingCount.textContent = `${loadedCount}/${total}`;
+                this.elements.loadingProgress.style.width = `${(loadedCount / total) * 100}%`;
+
+                return {
+                    ...track,
+                    buffer: audioBuffer,
+                    source: null,
+                    gainNode,
+                    panNode,
+                    isSolo: false,
+                    gain: track.gain,
+                    pan: track.pan
+                };
+            };
+
+            // Initialize audioNodes array with the correct length
+            this.audioNodes = new Array(this.tracks.length);
+
+            // Load all tracks and store them in order
+            const loadedNodes = await Promise.all(
+                this.tracks.map((track, index) =>
+                    decodeTrack(track).then(node => ({ node, index }))
+                )
+            );
+
+            // Place each node in its correct position in the array
+            loadedNodes.forEach(({ node, index }) => {
+                this.audioNodes[index] = node;
+            });
+
+            // Set up player after all tracks are loaded
+            this.duration = this.audioNodes[0].buffer.duration;
+            this.updateTimeDisplay(0, this.duration);
+
+            // Update player state
+            this.state.isReady = true;
+            this.elements.playButton.disabled = false;
+            this.elements.playButton.classList.remove('disabled');
+            this.elements.loading.classList.add('hidden');
+
+        } catch (error) {
+            console.error('Error loading tracks:', error);
+            this.updateLoadingStatus('Failed to load tracks');
+            this.showErrorMessage(`Failed to load tracks: ${error.message}`);
+        }
     }
 
     createTrackUI(track, index) {
         const trackElement = document.createElement('div');
         trackElement.className = 'track';
-        trackElement.onclick = () => this.toggleSolo(index);
+
+        // Add click handler to track element
+        trackElement.addEventListener('click', (e) => {
+            // Check if the click originated from a knob or knob container
+            if (!e.target.closest('.knob-container')) {
+                this.toggleSolo(index);
+            }
+        });
 
         const trackName = document.createElement('div');
         trackName.className = 'track-name';
@@ -424,13 +271,18 @@ class MultitrackPlayer {
         trackElement.appendChild(trackName);
         trackElement.appendChild(controls);
 
-        this.elements.tracksContainer.appendChild(trackElement);
+        this.elements.tracks.appendChild(trackElement);
         return trackElement;
     }
 
     createKnob(type, initialValue, onChange) {
         const container = document.createElement('div');
         container.className = 'knob-container';
+
+        // Prevent text selection on the container
+        container.style.userSelect = 'none';
+        container.style.webkitUserSelect = 'none';
+        container.style.msUserSelect = 'none';
 
         // Add icons
         const iconsContainer = document.createElement('div');
@@ -452,6 +304,11 @@ class MultitrackPlayer {
         const knob = document.createElement('div');
         knob.className = 'knob';
         knob.dataset.type = type;
+
+        // Prevent text selection on the knob
+        knob.style.userSelect = 'none';
+        knob.style.webkitUserSelect = 'none';
+        knob.style.msUserSelect = 'none';
 
         const label = document.createElement('div');
         label.className = 'knob-label';
@@ -499,6 +356,10 @@ class MultitrackPlayer {
         const handleMove = (e) => {
             if (!isDragging) return;
 
+            // Prevent text selection during drag
+            e.preventDefault();
+            e.stopPropagation();
+
             const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
             const deltaY = startY - clientY;
             const deltaValue = (deltaY / 100) * (type === 'gain' ? 1 : 2);
@@ -510,35 +371,47 @@ class MultitrackPlayer {
             onChange(newValue);
             tooltip.textContent = newValue.toFixed(2);
             tooltip.style.display = 'block';
-            e.preventDefault();
         };
 
-        const handleEnd = () => {
+        const handleStart = (e) => {
+            isDragging = true;
+            startY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+            startValue = initialValue;
+
+            // Prevent text selection on drag start
+            e.preventDefault();
+            e.stopPropagation();
+
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove, { passive: false });
+            document.addEventListener('mouseup', handleEnd);
+            document.addEventListener('touchend', handleEnd);
+
+            // Add a class to body to prevent selection during drag
+            document.body.classList.add('dragging-knob');
+        };
+
+        const handleEnd = (e) => {
+            if (!isDragging) return;
             isDragging = false;
             tooltip.style.display = 'none';
+
             document.removeEventListener('mousemove', handleMove);
-            document.removeEventListener('mouseup', handleEnd);
             document.removeEventListener('touchmove', handleMove);
+            document.removeEventListener('mouseup', handleEnd);
             document.removeEventListener('touchend', handleEnd);
+
+            // Remove the dragging class
+            document.body.classList.remove('dragging-knob');
+
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         };
 
-        knob.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startY = e.clientY;
-            startValue = initialValue;
-            document.addEventListener('mousemove', handleMove);
-            document.addEventListener('mouseup', handleEnd);
-            e.preventDefault();
-        });
-
-        knob.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            startY = e.touches[0].clientY;
-            startValue = initialValue;
-            document.addEventListener('touchmove', handleMove);
-            document.addEventListener('touchend', handleEnd);
-            e.preventDefault();
-        });
+        knob.addEventListener('mousedown', handleStart);
+        knob.addEventListener('touchstart', handleStart, { passive: false });
 
         container.appendChild(knob);
         container.appendChild(label);
@@ -549,69 +422,140 @@ class MultitrackPlayer {
         return container;
     }
 
-    updateLoadingProgress(loadedCount, total) {
-        const percent = Math.round((loadedCount / total) * 100);
-        this.elements.loadingProgress.style.width = `${percent}%`;
-        this.elements.loadingCount.textContent = `${loadedCount}/${total}`;
+    toggleSolo(index) {
+        // Guard against invalid indices
+        if (index < 0 || index >= this.audioNodes.length || !this.audioNodes[index]) {
+            console.error('Invalid track index:', index);
+            return;
+        }
+
+        const track = this.audioNodes[index];
+        track.isSolo = !track.isSolo;
+
+        // Get only valid track elements
+        const trackElements = Array.from(this.elements.tracks.children);
+
+        // Update UI and gains only for valid tracks
+        this.audioNodes.forEach((node, i) => {
+            if (node && i < trackElements.length) {
+                trackElements[i].classList.toggle('solo', node.isSolo);
+            }
+        });
+
+        // Update gain values
+        const hasSoloTracks = this.audioNodes.some(node => node && node.isSolo);
+        this.audioNodes.forEach(node => {
+            if (node) {
+                const newGain = hasSoloTracks ? (node.isSolo ? node.gain : 0) : node.gain;
+                node.gainNode.gain.value = newGain;
+            }
+        });
     }
 
-    updatePlayhead() {
-        if (this.isPlaying) {
-            const currentTime = this.audioContext.currentTime - this.startTime;
-            if (currentTime >= this.duration) {
-                this.stopPlayback(false);
-                return;
-            }
+    async play() {
+        if (!this.state.isReady || this.state.isPlaying) return;
 
-            this.updateSeekPosition(currentTime / this.duration);
-            this.animationFrame = requestAnimationFrame(() => this.updatePlayhead());
+        await this.audioContext.resume();
+
+        const startTime = this.audioContext.currentTime - this.state.currentTime;
+
+        this.audioNodes.forEach(node => {
+            node.source = this.audioContext.createBufferSource();
+            node.source.buffer = node.buffer;
+            node.source.connect(node.gainNode);
+            node.source.start(0, this.state.currentTime);
+        });
+
+        this.state.isPlaying = true;
+        this.state.startTime = startTime;
+        this.updateUI();
+        this.updatePlayhead();
+    }
+
+    pause() {
+        if (!this.state.isPlaying) return;
+
+        this.state.currentTime = this.audioContext.currentTime - this.state.startTime;
+
+        this.audioNodes.forEach(node => {
+            node.source?.stop();
+            node.source = null;
+        });
+
+        this.state.isPlaying = false;
+        this.updateUI();
+    }
+
+    async seekTo(time, resume = this.state.isPlaying) {
+        // Ensure we have a valid total duration before proceeding
+        if (!Number.isFinite(this.duration) || this.duration <= 0) {
+            console.error("Invalid duration; cannot seek.");
+            return;
+        }
+        const total = this.duration;
+        // Clamp the desired seek time between 0 and the total duration
+        const newTime = Math.max(0, Math.min(time, total));
+        const wasPlaying = this.state.isPlaying;
+
+        // If currently playing, pause playback (which updates currentTime)
+        if (wasPlaying) {
+            await this.pause();
+        }
+
+        // Update the current time and UI immediately
+        this.state.currentTime = newTime;
+        this.updateSeekPosition(newTime / total);
+
+        // Resume playback if it was playing before
+        if (resume && wasPlaying) {
+            await this.play();
         }
     }
 
-    updateSeekPosition(position) {
-        const normalizedPosition = Math.max(0, Math.min(1, position));
-        const time = normalizedPosition * this.duration;
-        this.updateTimeDisplay(time, this.duration);
-        this.elements.progressBar.style.width = `${normalizedPosition * 100}%`;
-        this.elements.playhead.style.left = `${normalizedPosition * 100}%`;
+    updatePlayhead() {
+        if (!this.state.isPlaying) return;
+
+        const currentTime = this.audioContext.currentTime - this.state.startTime;
+        const duration = this.audioNodes[0].buffer.duration;
+        const position = currentTime / duration;
+
+        this.elements.progress.style.width = `${position * 100}%`;
+        this.elements.playhead.style.left = `${position * 100}%`;
+        this.elements.timeDisplay.textContent = this.formatTime(currentTime);
+
+        if (currentTime < duration) {
+            requestAnimationFrame(() => this.updatePlayhead());
+        } else {
+            this.pause();
+            this.state.currentTime = 0;
+            this.updatePlayhead();
+        }
+    }
+
+    updateUI() {
+        this.elements.playButton.classList.toggle('playing', this.state.isPlaying);
+        this.elements.loading.style.display = this.state.isReady ? 'none' : 'block';
+
+        // Add this line to toggle the animation
+        document.querySelector('.title').classList.toggle('playing', this.state.isPlaying);
     }
 
     formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = Math.floor(seconds % 60);
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        const secs = Math.floor(seconds % 60);
+        return `${minutes}:${secs.toString().padStart(2, '0')}`;
     }
 
-    updateTimeDisplay(currentTime, duration) {
-        this.elements.currentTimeDisplay.textContent = this.formatTime(currentTime);
-        this.elements.durationDisplay.textContent = this.formatTime(duration);
+    updateLoadingStatus(message) {
+        const statusElement = document.querySelector('.loading-status');
+        if (statusElement) {
+            statusElement.textContent = message;
+        }
     }
 
     showErrorMessage(message) {
         console.error(message);
-        // You can implement a more user-friendly error display here
-    }
-
-    updateLoadingStatus(status) {
-        this.elements.loadingStatus.textContent = status;
-    }
-
-    toggleSolo(index) {
-        const track = this.tracks[index];
-        track.isSolo = !track.isSolo;
-
-        // Update track UI
-        const trackElements = this.elements.tracksContainer.children;
-        Array.from(trackElements).forEach((el, i) => {
-            el.classList.toggle('solo', this.tracks[i].isSolo);
-        });
-
-        // Update gain values
-        const hasSoloTracks = this.tracks.some(t => t.isSolo);
-        this.tracks.forEach(t => {
-            const newGain = hasSoloTracks ? (t.isSolo ? t.gain : 0) : t.gain;
-            t.gainNode.gain.value = newGain;
-        });
+        this.updateLoadingStatus(`Error: ${message}`);
     }
 
     createReverbNodes() {
@@ -679,9 +623,9 @@ class MultitrackPlayer {
 
     toggleReverb() {
         this.reverbEnabled = !this.reverbEnabled;
-        this.elements.reverbToggle.classList.toggle('active', this.reverbEnabled);
+        this.elements.reverb.classList.toggle('active', this.reverbEnabled);
 
-        this.tracks.forEach(track => {
+        this.audioNodes.forEach(track => {
             track.panNode.disconnect();
 
             if(this.reverbEnabled) {
@@ -692,9 +636,27 @@ class MultitrackPlayer {
             }
         });
     }
+
+    // Add this method to handle time display updates
+    updateTimeDisplay(currentTime, duration) {
+        this.elements.timeDisplay.textContent = this.formatTime(currentTime);
+        this.elements.duration.textContent = this.formatTime(duration);
+    }
+
+    // Add seek position method
+    updateSeekPosition(position) {
+        const normalizedPosition = Math.max(0, Math.min(1, position));
+        const time = normalizedPosition * this.duration;
+        this.updateTimeDisplay(time, this.duration);
+        this.elements.progress.style.width = `${normalizedPosition * 100}%`;
+        this.elements.playhead.style.left = `${normalizedPosition * 100}%`;
+    }
 }
 
-// Initialize the player when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.player = new MultitrackPlayer();
-});
+// Initialize player but wait for interaction to load audio
+let player = new MultitrackPlayer();
+
+// Add click handler to document
+document.addEventListener('click', () => {
+    player.initializeAudio();
+}, { once: true });

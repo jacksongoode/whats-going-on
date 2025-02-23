@@ -18,9 +18,9 @@ class MultitrackPlayer {
             { path: 'public/assets/tracks/piano.ogg', name: 'Piano', gain: 0.3, pan: 0.1 },
             { path: 'public/assets/tracks/vibes.ogg', name: 'Vibraphone', gain: 0.5, pan: 0.8 },
             { path: 'public/assets/tracks/sax.ogg', name: 'Saxophone', gain: 0.7, pan: -0.7 },
-            { path: 'public/assets/tracks/strings_1l.ogg', name: 'Strings L', gain: 0.35, pan: -0.4 },
-            { path: 'public/assets/tracks/strings_2r.ogg', name: 'Strings R', gain: 0.35, pan: 0.4 },
-            { path: 'public/assets/tracks/strings_3m.ogg', name: 'Strings M', gain: 0.35, pan: 0 }
+            { path: 'public/assets/tracks/strings_1l.ogg', name: 'Strings L', gain: 0.30, pan: -0.5 },
+            { path: 'public/assets/tracks/strings_2r.ogg', name: 'Strings R', gain: 0.30, pan: 0.5 },
+            { path: 'public/assets/tracks/strings_3m.ogg', name: 'Strings M', gain: 0.30, pan: 0 }
         ];
 
         this.state = {

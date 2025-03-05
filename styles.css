@@ -1,491 +1,116 @@
-/* 1. Use a more-intuitive box-sizing model */
+/* Reset and base styles */
 *,
 *::before,
 *::after {
 	box-sizing: border-box;
 }
 
-/* 2. Remove default margin */
 * {
 	margin: 0;
 }
 
 body {
-	/* 3. Add accessible line-height */
 	line-height: 1.5;
-	/* 4. Improve text rendering */
 	-webkit-font-smoothing: antialiased;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+		Ubuntu, Cantarell, sans-serif;
+	background-color: #111;
+	color: #eee;
+	padding: 0;
+	margin: 0;
 }
 
-/* 5. Improve media defaults */
-img,
-picture,
-video,
-canvas,
-svg {
+img, picture, video, canvas, svg {
 	display: block;
 	max-width: 100%;
 }
 
-/* 6. Inherit fonts for form controls */
-input,
-button,
-textarea,
-select {
+input, button, textarea, select {
 	font: inherit;
 }
 
-/* 7. Avoid text overflows */
-p,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+p, h1, h2, h3, h4, h5, h6 {
 	overflow-wrap: break-word;
 }
 
-/* 8. Improve line wrapping */
-p {
-	text-wrap: pretty;
-}
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	text-wrap: balance;
-}
-
-/*
-9. Create a root stacking context
-*/
-#root,
-#__next {
-	isolation: isolate;
-}
-
-/* Body styling */
-body {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-		Ubuntu, Cantarell, sans-serif;
-	background-color: #1a1a1a;
-	color: #fff;
-	padding: 1rem;
-}
-
-/* Container: make it narrow */
+/* Main layout */
 .container {
-	max-width: 600px; /* narrower layout */
-	margin: 0 auto;
-	padding: 1rem;
+	max-width: 580px;
+	margin: 2.5rem auto;
+	padding: 0 1.25rem;
 }
 
-/* Transport section styling */
-.transport {
-	background-color: #2a2a2a;
-	border: 1px solid #444;
-	border-radius: 8px;
-	padding: 1rem;
-	margin-bottom: 1rem;
-}
-
-.timeline-container {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-}
-
-/* Common interactive element styles */
-.play-pause-button,
-.reverb-toggle,
-.knob {
-	background-color: #666;
-	color: white;
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-
-/* Unified hover states */
-.play-pause-button:hover:not(.disabled),
-.reverb-toggle:hover,
-.knob:hover {
-	background-color: #777;
-	transform: scale(1.05);
-}
-
-/* Unified active/enabled states */
-.play-pause-button.playing,
-.reverb-toggle.active,
-.knob:active {
-	background-color: #888;
-	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
-}
-
-/* Update specific button styles while maintaining common theme */
-.play-pause-button {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
-	border: none;
-	padding: 6px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.reverb-toggle {
-	border: none;
-	padding: 6px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.knob {
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	position: relative;
-	transform-origin: center center;
-}
-
-/* Remove old individual hover/active states */
-.reverb-toggle:hover {
-	color: #fff;
-}
-
-.reverb-toggle.active {
-	color: #fff;
-}
-
-/* Keep necessary specific styles */
-.play-pause-button.disabled {
-	background-color: #666;
-	cursor: not-allowed;
-	opacity: 0.7;
-	transform: none;
-}
-
-.knob::before {
-	content: "";
-	position: absolute;
-	top: 0;
-	left: 50%;
-	width: 2px;
-	height: 3px;
-	background-color: #333;
-	transform: translateX(-50%);
-}
-
-.knob::after {
-	content: "";
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	width: 2px;
-	height: 10px;
-	background-color: white;
-	transform: translate(-50%, -50%);
-	transform-origin: center 1px;
-}
-
-.play-pause-button svg {
-	width: 24px;
-	height: 24px;
-	fill: currentColor;
-	transition: transform 0.2s ease;
-}
-
-.play-pause-button:hover:not(.disabled) svg {
-	transform: scale(1.1);
-}
-
-.play-pause-button .pause-icon {
-	display: none;
-}
-
-.play-pause-button.playing .play-icon {
-	display: none;
-}
-
-.play-pause-button.playing .pause-icon {
-	display: block;
-}
-
-.timeline {
-	flex-grow: 1;
-	height: 6px;
-	background-color: #444;
-	border-radius: 3px;
-	cursor: pointer;
-	position: relative;
-}
-
-.progress-bar {
-	position: absolute;
-	height: 100%;
-	background-color: #666;
-	border-radius: 3px;
-	width: 0;
-}
-
-.playhead {
-	position: absolute;
-	width: 12px;
-	height: 12px;
-	background-color: #666;
-	border-radius: 50%;
-	top: 50%;
-	transform: translate(-50%, -50%);
-	left: 0;
-}
-
-.time-display {
-	font-size: 0.875rem;
-	color: #bbb;
-	min-width: 80px;
-	text-align: right;
-}
-
-/* Tracks Container */
-.tracks-container {
-	background-color: #2a2a2a;
-	border-radius: 8px;
-	overflow: visible;
-	border: 1px solid #444;
-	position: relative;
-}
-
-.track {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	align-items: center;
-	padding: 0.5rem 0.75rem;
-	gap: 0.5rem;
-	border-bottom: 1px solid #444;
-	transition: background-color 0.2s ease;
-	cursor: pointer;
-}
-
-.track:last-child {
-	border-bottom: none;
-}
-
-.track:hover {
-	background-color: #333;
-}
-
-.track.solo {
-	background-color: rgba(102, 102, 102, 0.2);
-}
-
-.track-name {
-	font-size: 0.9rem;
-	color: #ccc;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.track-controls {
-	display: flex;
-	gap: 1rem;
-	justify-content: flex-end;
-}
-
-.knob-container {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 0.25rem;
-	position: relative;
-	padding: 0.25rem 1rem;
-	touch-action: none;
-}
-
-.knob-icons {
-	display: flex;
-	justify-content: space-between;
-	width: 100%;
-	position: absolute;
-	top: 50%;
-	transform: translateY(-50%);
-	pointer-events: none;
-	opacity: 0.5;
-	padding: 0 0.25rem;
-}
-
-.knob-icons svg {
-	width: 12px;
-	height: 12px;
-	color: #888;
-	margin-top: 2px;
-}
-
-.knob-label {
-	font-size: 0.7rem;
-	color: #aaa;
-	text-transform: uppercase;
-	margin-top: 4px;
-}
-
-.knob-tooltip {
-	z-index: 10;
-	pointer-events: none;
-	background-color: rgba(0, 0, 0, 0.8) !important;
-	padding: 4px 8px !important;
-	border-radius: 4px !important;
-	font-size: 12px !important;
-	position: absolute;
-	left: 50%;
-	transform: translateX(-50%);
-	white-space: nowrap;
-}
-
-/* Add positioning logic based on track position */
-.track:first-child .knob-tooltip {
-	bottom: calc(100% + 5px);
-}
-
-.track:not(:first-child) .knob-tooltip {
-	top: -25px;
-}
-
-/* Loading Container */
-.loading-container {
-	display: grid;
-	grid-template-columns: 1fr auto; /* Reverse column order */
-	gap: 0 1rem;
-	align-items: center;
-	margin-bottom: 1rem;
-}
-
-.loading-count {
-	grid-column: 2; /* Move to right column */
-	font-size: 0.9rem;
-	color: #bbb;
-	min-width: 50px;
-	text-align: right;
-	font-variant-numeric: tabular-nums;
-}
-
-.loading-status {
-	grid-column: 1; /* Keep in left column */
-	font-size: 0.875rem;
-	color: #fff;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	text-align: left;
-	justify-self: start;
-}
-
-.loading-bar {
-	grid-column: 1 / -1;
-	width: 100%;
-	height: 4px;
-	background-color: #333;
-	border-radius: 2px;
-	overflow: hidden;
-	margin-top: 0.5rem;
-}
-
-.loading-progress {
-	height: 100%;
-	background-color: #666;
-	width: 0;
-	transition: width 0.3s ease;
-}
-
-/* Remove the animation shine effect */
-.loading-progress::after {
-	content: none;
-}
-
-.loading-text {
-	font-size: 0.875rem;
-	color: #bbb;
-	text-align: center;
-	margin-top: 0.5rem;
-}
-
-.loading-container.hidden {
-	display: none;
-}
-
-.reverb-icon {
-	width: 24px;
-	height: 24px;
-	fill: currentColor;
-}
-
-.loading-status {
-	min-height: 1.2em;
-}
-
-.loading-count {
-	font-size: 0.9rem;
-	color: #bbb;
-	min-width: 50px;
-}
-
-.dragging-knob {
-	user-select: none;
-	-webkit-user-select: none;
-	-moz-user-select: none;
-	-ms-user-select: none;
-}
-
+/* Title section */
 .title-container {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 0.5rem;
-	margin-bottom: 1rem;
+	margin-bottom: 2rem;
 	position: relative;
 }
 
 .title-row {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
-}
-
-.garfield-icon {
-	width: 64px;
-	height: 64px;
-	margin-left: 0.5rem;
-	filter: grayscale(100%) contrast(1.2);
-	transition: filter 1s ease, opacity 1s ease;
-}
-
-.garfield-icon.loaded {
-	filter: grayscale(0) contrast(1);
-	opacity: 1;
+	gap: 0.75rem;
+	margin-bottom: 0.5rem;
 }
 
 .title {
-	text-wrap: balance;
+	font-size: 1.75rem;
+	font-weight: 400;
+	letter-spacing: -0.015em;
 	cursor: pointer;
-	transition: text-decoration 0.2s ease, border-color 0.2s ease;
-	border-bottom: 2px solid transparent;
+	transition: opacity 0.2s ease;
+	margin: 0;
+	color: #ddd;
 }
 
 .title span {
 	display: inline-block;
+	white-space: pre;
 }
 
-/* Simplified wave animation */
+.garfield-icon {
+	width: 42px;
+	height: 42px;
+	filter: none;
+	transition: filter 0.3s ease;
+	opacity: 1;
+}
+
+.title.playing + .garfield-icon {
+	filter: none;
+}
+
+/* Description styles */
+.description {
+	max-width: 520px;
+	font-size: 0.85rem;
+	line-height: 1.6;
+	color: #999;
+	text-align: center;
+	opacity: 0;
+	max-height: 0;
+	overflow: hidden;
+	transform: translateY(-5px);
+	transition: opacity 0.3s ease-out, max-height 0.4s ease-out,
+		transform 0.3s ease-out;
+}
+
+.title-container.active .description {
+	opacity: 1;
+	max-height: 400px;
+	transform: none;
+}
+
+/* Wave animation for title */
 @keyframes wave-bounce {
 	0% {
 		transform: translateY(0px);
 	}
-	50% {
-		transform: translateY(-6px);
+	60% {
+		transform: translateY(-2px);
 	}
 	100% {
 		transform: translateY(0px);
@@ -493,33 +118,11 @@ body {
 }
 
 .title.playing span {
-	animation: wave-bounce 1.2s ease-in-out infinite; /* Shorter duration */
+	animation: wave-bounce 0.9s ease-in-out infinite;
+	animation-delay: calc(var(--i, 0) * 0.04s);
 }
 
-.description {
-	opacity: 0;
-	max-height: 0;
-	overflow: hidden;
-	transform: translateY(-10px);
-	transition: opacity 0.3s ease-out, max-height 0.4s linear,
-		transform 0.4s ease-out;
-	pointer-events: none;
-	text-align: center;
-}
-
-.title-container.active .description {
-	transition-timing-function: ease-out;
-	max-height: min(80vh, 400px);
-	opacity: 1;
-	transform: none;
-}
-
-/* Underline on active state */
-.title-container.active .title {
-	border-color: currentColor;
-	text-decoration: none;
-}
-
+/* Add subtle hover effect */
 .title:hover {
-	opacity: 0.9;
+	opacity: 0.85;
 }

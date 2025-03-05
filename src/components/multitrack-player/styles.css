@@ -1,0 +1,479 @@
+/* CSS Reset and Base Styles */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+}
+
+body {
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+img, picture, video, canvas, svg {
+	display: block;
+	max-width: 100%;
+}
+
+input, button, textarea, select {
+	font: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+	overflow-wrap: break-word;
+}
+
+/* Variables for consistent theming */
+:host {
+	--color-bg: #222;
+	--color-track-bg: #222; /* Same as background for minimal contrast */
+	--color-track-hover: #2a2a2a;
+	--color-track-solo: #2a2a2a;
+	--color-accent: #aaa;
+	--color-text: #eee;
+	--color-text-subtle: #999;
+	--color-border: rgba(255, 255, 255, 0.1);
+	--color-timeline-bg: #2a2a2a; /* New background for timeline */
+	--shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.1);
+	--transition-standard: all 0.2s ease;
+	--track-spacing: 0;
+	--border-radius: 6px; /* Increased border radius */
+}
+
+/* Main Component Container */
+.multitrack-player {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+	color: var(--color-text);
+}
+
+/* Loading Status Section */
+.loading-container {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0 0.75rem;
+	align-items: center;
+	margin-bottom: 0.75rem;
+}
+
+.loading-status {
+	grid-column: 1;
+	font-size: 0.8rem;
+	color: var(--color-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-height: 1.2em;
+}
+
+.loading-count {
+	grid-column: 2;
+	font-size: 0.8rem;
+	color: var(--color-text-subtle);
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.loading-bar {
+	grid-column: 1 / -1;
+	width: 100%;
+	height: 2px;
+	background-color: var(--color-track-bg);
+	overflow: hidden;
+	margin-top: 0.25rem;
+}
+
+.loading-progress {
+	height: 100%;
+	background-color: var(--color-accent);
+	width: 0;
+	transition: width 0.3s ease;
+}
+
+.loading-container.hidden {
+	display: none;
+}
+
+/* Transport Controls */
+.timeline-container {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem; /* Increased padding */
+	margin-bottom: 0; /* Remove margin as it'll connect to tracks */
+	background-color: var(--color-bg);
+	border-radius: var(--border-radius); /* Use full border radius initially */
+	border-bottom-left-radius: 0; /* Will be overridden when tracks container is shown */
+	border-bottom-right-radius: 0; /* Will be overridden when tracks container is shown */
+	transition: border-radius 0.3s ease;
+}
+
+/* When no tracks are loaded yet, keep the full border radius */
+.timeline-container:not(.tracks-loaded) {
+	border-radius: var(--border-radius);
+}
+
+.play-pause-button {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 44px; /* Increased size */
+	height: 44px; /* Increased size */
+	border-radius: 50%;
+	background-color: var(--color-track-bg);
+	border: none;
+	color: var(--color-text);
+	cursor: pointer;
+	transition: var(--transition-standard);
+	flex-shrink: 0;
+}
+
+.play-pause-button:hover:not(.disabled) {
+	transform: scale(1.05);
+	background-color: var(--color-track-hover);
+}
+
+.play-pause-button.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.play-pause-button .play-icon,
+.play-pause-button .pause-icon {
+	width: 22px; /* Increased icon size */
+	height: 22px; /* Increased icon size */
+	stroke: var(--color-text);
+}
+
+.play-pause-button .pause-icon {
+	display: none;
+}
+
+.play-pause-button.playing .play-icon {
+	display: none;
+}
+
+.play-pause-button.playing .pause-icon {
+	display: block;
+}
+
+.timeline {
+	flex-grow: 1;
+	height: 5px; /* Slightly taller */
+	background-color: var(--color-timeline-bg); /* Use the new timeline background color */
+	cursor: pointer;
+	position: relative;
+	border-radius: 2.5px; /* Rounded corners for timeline */
+	overflow: hidden; /* To contain the progress bar */
+}
+
+.progress-bar {
+	position: absolute;
+	height: 100%;
+	background-color: var(--color-accent);
+	width: 0;
+}
+
+.playhead {
+	position: absolute;
+	width: 12px; /* Larger playhead */
+	height: 12px; /* Larger playhead */
+	background-color: var(--color-accent);
+	border-radius: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	left: 0;
+}
+
+.time-display {
+	font-size: 0.8rem;
+	color: var(--color-text-subtle);
+	min-width: 70px;
+	text-align: right;
+}
+
+/* Reverb Controls */
+.reverb-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.reverb-toggle {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 38px; /* Increased size */
+	height: 38px; /* Increased size */
+	border-radius: 50%;
+	background-color: var(--color-track-bg);
+	border: none;
+	color: var(--color-text-subtle);
+	cursor: pointer;
+	transition: var(--transition-standard);
+	z-index: 2;
+}
+
+.reverb-toggle:hover {
+	color: var(--color-text);
+}
+
+.reverb-toggle.active {
+	background-color: var(--color-track-hover);
+	color: var(--color-text);
+}
+
+.reverb-menu {
+	position: absolute;
+	top: calc(100% + 5px);
+	right: 0;
+	background-color: var(--color-bg);
+	border-radius: var(--border-radius);
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+	display: none;
+	flex-direction: column;
+	overflow: hidden;
+	z-index: 10;
+	border: 1px solid var(--color-border);
+}
+
+.reverb-menu.show {
+	display: flex;
+}
+
+.reverb-option {
+	padding: 0.5rem 1rem;
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--color-text-subtle);
+	text-align: left;
+	white-space: nowrap;
+	transition: var(--transition-standard);
+}
+
+.reverb-option:hover {
+	background-color: var(--color-track-hover);
+	color: var(--color-text);
+}
+
+.reverb-option.active {
+	background-color: var(--color-accent-light);
+	color: var(--color-text);
+	font-weight: 500;
+}
+
+/* Tracks Container */
+.tracks-container {
+	background-color: var(--color-bg);
+	position: relative;
+	margin-top: 0;
+	padding: 0.75rem 1rem; /* Increased padding to match timeline container */
+	display: none;
+	border-bottom-left-radius: var(--border-radius);
+	border-bottom-right-radius: var(--border-radius);
+	opacity: 0;
+	transform: translateY(-10px);
+	transition: opacity 0.3s ease, transform 0.3s ease;
+	overflow: hidden;
+}
+
+.tracks-container.card-style {
+	display: flex;
+	flex-direction: column;
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* Track Item Styling */
+.track {
+	background-color: var(--color-track-bg);
+	padding: 0.65rem 0.5rem; /* Added more padding around track elements */
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	transition: var(--transition-standard);
+	border-bottom: 1px solid var(--color-border); /* Simple divider */
+	opacity: 0; /* Start hidden for fade-in effect */
+	transform: translateY(5px); /* Start slightly below */
+	animation: fadeTrackIn 0.3s ease forwards;
+}
+
+/* Animation for tracks loading */
+@keyframes fadeTrackIn {
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Delay each track slightly */
+.track:nth-child(1) { animation-delay: 0.05s; }
+.track:nth-child(2) { animation-delay: 0.1s; }
+.track:nth-child(3) { animation-delay: 0.15s; }
+.track:nth-child(4) { animation-delay: 0.2s; }
+.track:nth-child(5) { animation-delay: 0.25s; }
+.track:nth-child(6) { animation-delay: 0.3s; }
+.track:nth-child(7) { animation-delay: 0.35s; }
+.track:nth-child(8) { animation-delay: 0.4s; }
+.track:nth-child(9) { animation-delay: 0.45s; }
+.track:nth-child(10) { animation-delay: 0.5s; }
+.track:nth-child(n+11) { animation-delay: 0.55s; }
+
+.track:last-child {
+	border-bottom: none;
+}
+
+.track:hover {
+	background-color: var(--color-track-hover);
+}
+
+.track.solo {
+	background-color: var(--color-track-solo);
+	border-left: 2px solid var(--color-accent);
+}
+
+.track-name {
+	flex: 1;
+	margin-right: 0.75rem;
+	font-weight: 500;
+	font-size: 0.9rem;
+	color: var(--color-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+	padding-left: 0.5rem; /* Added padding to the left side of track name */
+}
+
+/* Track Controls */
+.track-controls {
+	display: flex;
+	gap: 1.5rem; /* Increased space between gain and pan controls */
+	align-items: center;
+}
+
+.knob-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.1rem; /* Tighter gap between knob and label */
+	position: relative;
+	padding: 0 0.75rem; /* Wider padding to accommodate icons */
+	touch-action: none;
+}
+
+/* Volume/Pan icons */
+.knob-container::before,
+.knob-container::after {
+	position: absolute;
+	top: 50%; /* Center vertically */
+	transform: translateY(-50%); /* Ensure perfect centering */
+	font-size: 11px; /* Slightly smaller */
+	color: var(--color-text-subtle);
+}
+
+/* Volume icons */
+.knob-container[data-type="gain"]::before {
+	content: "−";
+	left: -2px;
+}
+
+.knob-container[data-type="gain"]::after {
+	content: "+";
+	right: -2px;
+}
+
+/* Pan icons */
+.knob-container[data-type="pan"]::before {
+	content: "L";
+	left: -2px;
+	font-size: 9px;
+}
+
+.knob-container[data-type="pan"]::after {
+	content: "R";
+	right: -2px;
+	font-size: 9px;
+}
+
+.knob {
+	width: 28px; /* Slightly larger knob */
+	height: 28px; /* Slightly larger knob */
+	background-color: #444;
+	border-radius: 50%;
+	position: relative;
+	transition: var(--transition-standard);
+}
+
+.knob:hover {
+	background-color: #555;
+}
+
+.knob:active {
+	background-color: #666;
+}
+
+.knob::before {
+	content: "";
+	position: absolute;
+	top: 13px; /* Adjusted for new size */
+	left: 13px; /* Adjusted for new size */
+	width: 2px;
+	height: 2px;
+	background-color: var(--color-text);
+	border-radius: 50%;
+}
+
+.knob::after {
+	content: "";
+	position: absolute;
+	top: 3px;
+	left: 50%;
+	width: 1px;
+	height: 10px; /* Slightly longer indicator */
+	background-color: var(--color-text);
+	transform-origin: bottom center;
+	transform: translateX(-50%);
+}
+
+.knob-label {
+	font-size: 0.6rem; /* Smaller label */
+	color: var(--color-text-subtle);
+	text-transform: uppercase;
+	margin-top: 1px;
+}
+
+.knob-tooltip {
+	z-index: 10;
+	pointer-events: none;
+	background-color: rgba(0, 0, 0, 0.8);
+	padding: 3px 6px;
+	border-radius: 2px;
+	font-size: 11px;
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	white-space: nowrap;
+	top: -24px;
+}
+
+/* Icon Styling */
+.lucide, .lucide-icon, .feather, .feather-icon {
+	width: 20px;
+	height: 20px;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	fill: none;
+	display: inline-block;
+}
+
+/* Utility Classes */
+.dragging-knob {
+	user-select: none;
+}

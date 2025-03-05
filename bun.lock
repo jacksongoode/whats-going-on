@@ -1,0 +1,13 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "dependencies": {
+        "lucide": "^0.476.0",
+      },
+    },
+  },
+  "packages": {
+    "lucide": ["lucide@0.476.0", "", {}, "sha512-Hq4Q0Rioa2YeIeJU0Hqt0T1M5uBt/K52KaXUg9iGbnqhcIGQt+9Ttht9u0041bkr4ITDQOtYoy5eBsZvFIAvLQ=="],
+  }
+}

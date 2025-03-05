@@ -6,10 +6,12 @@ export class TrackLoader {
   constructor(audioProcessor, audioCache) {
     this.audioProcessor = audioProcessor;
     this.audioCache = audioCache;
+    // Add a tracking set to prevent duplicate loading messages
+    this.processedTracks = new Set();
   }
 
   /**
-   * Load all tracks from configuration
+   * Load tracks from configuration
    * @param {Array} tracks - Array of track configuration objects
    * @param {Function} onProgress - Callback for loading progress updates
    * @param {Function} onComplete - Callback when loading is complete
@@ -18,10 +20,12 @@ export class TrackLoader {
    */
   async loadTracks(tracks, onProgress, onComplete, onStatusUpdate) {
     try {
+      // Reset the track processing set for fresh load
+      this.processedTracks.clear();
+
       onStatusUpdate("Loading tracks...");
 
       const total = tracks.length;
-      let loadedCount = 0;
 
       if (total === 0) {
         onStatusUpdate("No tracks found");
@@ -34,65 +38,94 @@ export class TrackLoader {
 
       // Initialize audioNodes array
       const audioNodes = new Array(total);
+      let completedCount = 0;
+      let usedCachedNodes = 0;
 
-      // Track loading map to prevent duplicate loads of the same track
-      const loadingMap = new Map();
+      // First, try to use cached AudioNode trees (fastest path)
+      // This is a synchronous operation and should be near-instant
+      for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+        const cachedNodeTree = this.audioCache.getAudioNodeTree(track.path);
 
-      // Process tracks in parallel with Promise.all
-      const loadPromises = tracks.map(async (track, i) => {
-        try {
-          // Use a loading map to avoid double-loading the same track URL
-          if (loadingMap.has(track.path)) {
-            console.log(`Already loading track: ${track.name}, reusing promise`);
-            const result = await loadingMap.get(track.path);
+        if (cachedNodeTree) {
+          // Recreate the node tree from cache
+          audioNodes[i] = this.audioProcessor.recreateNodeTreeFromCache({
+            ...cachedNodeTree,
+            ...track  // Use latest track config (in case gain/pan changed)
+          });
 
-            // Still need to create audio nodes for this instance
-            if (result.success) {
-              audioNodes[i] = this.audioProcessor.createTrackNodes(result.buffer, {
-                ...track,
-                isSolo: false
-              });
-
-              loadedCount++;
-              onProgress(loadedCount, total);
-            }
-            return { success: result.success, index: i };
-          }
-
-          // Create a promise for loading this track and store in the map
-          const loadingPromise = this.loadSingleTrack(track);
-          loadingMap.set(track.path, loadingPromise);
-
-          // Wait for the track to load
-          const result = await loadingPromise;
-
-          // Set up audio nodes if successful
-          if (result.success) {
-            audioNodes[i] = this.audioProcessor.createTrackNodes(result.buffer, {
-              ...track,
-              isSolo: false
-            });
-
-            loadedCount++;
-            onProgress(loadedCount, total);
-          }
-
-          return { success: result.success, index: i };
-        } catch (error) {
-          console.error(`Error loading track ${i}:`, error);
-          return { success: false, index: i, error };
+          console.log(`Using cached node tree for: ${track.name}`);
+          usedCachedNodes++;
+          completedCount++;
+          onProgress(completedCount, total);
         }
+      }
+
+      // If we've loaded all tracks from cache, we're done!
+      if (usedCachedNodes === total) {
+        console.log("All tracks loaded from node tree cache!");
+        onStatusUpdate(`Loaded all tracks from cache`);
+
+        // Apply reverb buffer to all nodes
+        this.audioProcessor.updateReverbBuffers(audioNodes);
+
+        onComplete(audioNodes, usedCachedNodes);
+        return audioNodes;
+      }
+
+      // For any tracks not loaded from cache, load them normally
+      const remainingPromises = tracks.map((track, i) => {
+        // Skip tracks already loaded from cache
+        if (audioNodes[i]) return Promise.resolve({ success: true, index: i });
+
+        return this.loadSingleTrack(track)
+          .then((result) => {
+            // Set up audio nodes if successful
+            if (result.success) {
+              // Create node tree
+              const nodeTree = this.audioProcessor.createTrackNodes(
+                result.buffer,
+                {
+                  ...track,
+                  isSolo: false,
+                }
+              );
+
+              // Store in array
+              audioNodes[i] = nodeTree;
+
+              // Cache a simplified version of the node tree
+              const cacheableTree = this.audioProcessor.createCacheableNodeTree({
+                ...nodeTree,
+                path: track.path
+              });
+              this.audioCache.cacheAudioNodeTree(track.path, cacheableTree);
+            }
+
+            // Update progress
+            completedCount++;
+            onProgress(completedCount, total);
+
+            return { success: result.success, index: i };
+          })
+          .catch((error) => {
+            console.error(`Error loading track ${i}:`, error);
+            completedCount++;
+            onProgress(completedCount, total);
+            return { success: false, index: i, error };
+          });
       });
 
-      // Process all tracks in parallel
-      const results = await Promise.all(loadPromises);
-      const successfulLoads = results.filter(r => r.success).length;
+      // Only wait for tracks that weren't loaded from cache
+      const remainingResults = await Promise.all(remainingPromises);
+      const loadedCount = remainingResults.filter((r) => r.success).length + usedCachedNodes;
 
       // Apply reverb buffer to all nodes
       this.audioProcessor.updateReverbBuffers(audioNodes);
 
-      // Return results to caller
-      onComplete(audioNodes, successfulLoads);
+      // Return results
+      onStatusUpdate(`Loaded ${loadedCount} of ${total} tracks`);
+      onComplete(audioNodes, loadedCount);
       return audioNodes;
     } catch (error) {
       console.error("Error loading tracks:", error);
@@ -107,38 +140,62 @@ export class TrackLoader {
    * @returns {Promise<Object>} Result object with success status and buffer
    */
   async loadSingleTrack(track) {
-    // First, check cache for this track
-    const cachedBuffer = await this.audioCache.getCachedTrack(track.path);
-    let arrayBuffer;
+    try {
+      // Create a unique identifier for this track
+      const trackId = track.path;
 
-    if (cachedBuffer) {
-      // Use cached data if available
-      arrayBuffer = cachedBuffer;
-      console.log(`Using cached track: ${track.name}`);
-    } else {
-      // Otherwise, fetch from network with retry
-      console.log(`Fetching track: ${track.name} from network`);
-      try {
+      // Check if we've already processed this track in current session
+      if (this.processedTracks.has(trackId)) {
+        console.log(`Re-using previously loaded track: ${track.name}`);
+      } else {
+        this.processedTracks.add(trackId);
+      }
+
+      // Check for AudioNode tree in cache (fastest path)
+      const cachedNodeTree = this.audioCache.getAudioNodeTree(track.path);
+      if (cachedNodeTree) {
+        console.log(`Found complete node tree for: ${track.name}`);
+        // This will be handled by loadTracks directly
+        return { success: true, buffer: cachedNodeTree.buffer };
+      }
+
+      // Check in-memory cache for decoded AudioBuffer
+      const cachedDecodedBuffer = this.audioCache.getDecodedBuffer(track.path);
+      if (cachedDecodedBuffer) {
+        console.log(`Using cached decoded audio for: ${track.name}`);
+        return { success: true, buffer: cachedDecodedBuffer };
+      }
+
+      // Check IndexedDB cache for raw audio data
+      let arrayBuffer = await this.audioCache.getCachedTrack(track.path);
+
+      if (arrayBuffer) {
+        console.log(`Using cached audio file for: ${track.name}`);
+      } else {
+        // Fetch from network
+        console.log(`Fetching track: ${track.name} from network`);
         const response = await this.audioCache.fetchWithRetry(track.path);
         arrayBuffer = await response.arrayBuffer();
 
-        // Cache for future use
-        const cacheSuccess = await this.audioCache.cacheTrack(track.path, arrayBuffer);
-        if (cacheSuccess) {
-          console.log(`Successfully cached track: ${track.name}`);
-        }
-      } catch (error) {
-        console.error(`Network error fetching track ${track.name}:`, error);
-        return { success: false, error };
+        // Cache raw audio data for future use
+        this.audioCache.cacheTrack(track.path, arrayBuffer)
+          .catch(err => console.warn(`Failed to cache track: ${track.name}`, err));
       }
-    }
 
-    try {
-      // Decode audio data
-      const audioBuffer = await this.audioProcessor.decodeAudioData(arrayBuffer);
-      return { success: true, buffer: audioBuffer };
+      try {
+        // Decode audio data
+        const audioBuffer = await this.audioProcessor.decodeAudioData(arrayBuffer);
+
+        // Cache the decoded buffer
+        this.audioCache.cacheDecodedBuffer(track.path, audioBuffer);
+
+        return { success: true, buffer: audioBuffer };
+      } catch (decodeError) {
+        console.error(`Error decoding track ${track.name}:`, decodeError);
+        return { success: false, error: decodeError };
+      }
     } catch (error) {
-      console.error(`Error decoding audio for track ${track.name}:`, error);
+      console.error(`Error loading track ${track.name}:`, error);
       return { success: false, error };
     }
   }

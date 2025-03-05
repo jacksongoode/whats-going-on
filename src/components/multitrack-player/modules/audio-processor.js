@@ -8,26 +8,43 @@ export class AudioProcessor {
     this.masterGain = null;
     this.reverbBuffer = null;
     this.reverbEnabled = true;
-    this.reverbType = 'medium'; // 'bright', 'medium', or 'dark'
   }
 
   /**
-   * Initialize the audio context
-   * @returns {Promise<AudioContext>} The audio context
+   * Initialize the Web Audio API context
+   * @returns {Promise<AudioContext>} The initialized audio context
    */
   async initializeContext() {
-    if (this.audioContext) return this.audioContext;
+    try {
+      if (!this.audioContext) {
+        // Use default options for best performance
+        const contextOptions = {
+          latencyHint: "interactive",
+          sampleRate: 44100,
+        };
 
-    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)(
+          contextOptions
+        );
 
-    // Create master gain node
-    this.masterGain = this.audioContext.createGain();
-    this.masterGain.connect(this.audioContext.destination);
+        // Create master gain node
+        this.masterGain = this.audioContext.createGain();
+        this.masterGain.connect(this.audioContext.destination);
 
-    // Create reverb buffer for effects
-    await this.loadReverbImpulse();
+        // Preload the reverb impulse immediately after context creation
+        this.loadReverbImpulse().catch(err => {
+          console.warn("Failed to load reverb impulse, will use fallback:", err);
+        });
+      } else if (this.audioContext.state === "suspended") {
+        // Resume the context if it's suspended
+        await this.audioContext.resume();
+      }
 
-    return this.audioContext;
+      return this.audioContext;
+    } catch (error) {
+      console.error("Failed to initialize audio context:", error);
+      throw new Error(`Audio system initialization failed: ${error.message}`);
+    }
   }
 
   /**
@@ -45,7 +62,7 @@ export class AudioProcessor {
   }
 
   /**
-   * Loads an EMT 140 plate reverb impulse response
+   * Loads a Motown-style plate reverb impulse response
    * @returns {Promise<AudioBuffer>} The reverb buffer
    */
   async loadReverbImpulse() {
@@ -54,12 +71,10 @@ export class AudioProcessor {
         await this.initializeContext();
       }
 
-      // Select appropriate EMT 140 impulse response for Motown sound
-      // Medium is typical for vocals, bright for drums/percussion
-      const impulseNum = 3; // Using the middle variant for balanced tone
-      const url = `https://oramics.github.io/sampled/IR/EMT140-Plate/samples/emt_140_${this.reverbType}_${impulseNum}.wav`;
+      // Use bright reverb type for Motown with impulse 2 (shorter tail)
+      const url = `https://oramics.github.io/sampled/IR/EMT140-Plate/samples/emt_140_bright_2.wav`;
 
-      console.log(`Loading reverb impulse response: ${url}`);
+      console.log(`Loading Motown plate reverb impulse response`);
 
       // Fetch the impulse response file
       const response = await fetch(url);
@@ -81,20 +96,22 @@ export class AudioProcessor {
   }
 
   /**
-   * Creates a synthetic reverb impulse response as fallback
-   * @param {number} duration - Duration of the reverb in seconds
+   * Creates a synthetic Motown-style plate reverb impulse response as fallback
    * @returns {Promise<AudioBuffer>} The reverb buffer
    */
-  async createSyntheticReverb(duration = 2.5) {
+  async createSyntheticReverb() {
     try {
       if (!this.audioContext) {
         await this.initializeContext();
       }
 
+      // Use shorter duration for tighter Motown reverb
+      const duration = 1.5;
+
       const offlineContext = new OfflineAudioContext(
         2,
         this.audioContext.sampleRate * duration,
-        this.audioContext.sampleRate
+        this.audioContext.sampleRate,
       );
 
       // Create decaying noise
@@ -102,32 +119,32 @@ export class AudioProcessor {
       const buffer = offlineContext.createBuffer(
         1,
         offlineContext.sampleRate * duration,
-        offlineContext.sampleRate
+        offlineContext.sampleRate,
       );
 
-      // Fill with noise that exponentially decays
+      // Fill with noise that exponentially decays (faster for shorter tail)
       const channelData = buffer.getChannelData(0);
       for (let i = 0; i < channelData.length; i++) {
         const progress = i / channelData.length;
-        // More authentic decay curve for plate reverb
-        channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - progress, 1.5);
+        // Steeper decay curve for shorter tail
+        channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - progress, 2);
       }
 
-      // Shape with filters (more authentic for Motown plate reverb)
+      // Shape with filters optimized for Motown plate sound
       const hpFilter = offlineContext.createBiquadFilter();
       hpFilter.type = "highpass";
-      hpFilter.frequency.value = 600; // Adjusted for Motown sound
+      hpFilter.frequency.value = 800; // Higher to reduce low-end heaviness
 
       const lpFilter = offlineContext.createBiquadFilter();
       lpFilter.type = "lowpass";
-      lpFilter.frequency.value = 5000; // Brighter top end
+      lpFilter.frequency.value = 6000; // Brighter top end for clarity
 
       // Add mid-range boost for Motown vocal warmth
       const midBoost = offlineContext.createBiquadFilter();
       midBoost.type = "peaking";
-      midBoost.frequency.value = 1200;
-      midBoost.gain.value = 3;
-      midBoost.Q.value = 1.5;
+      midBoost.frequency.value = 1800; // Focus on upper mids
+      midBoost.gain.value = 4;
+      midBoost.Q.value = 1.2;
 
       // Connect nodes with additional filter
       noise.buffer = buffer;
@@ -148,15 +165,27 @@ export class AudioProcessor {
   }
 
   /**
-   * Decode an audio buffer from array buffer
-   * @param {ArrayBuffer} arrayBuffer - The raw audio data
-   * @returns {Promise<AudioBuffer>} The decoded audio buffer
+   * Decode audio data with better error handling
+   * @param {ArrayBuffer} arrayBuffer - Audio data to decode
+   * @returns {Promise<AudioBuffer>} Decoded audio buffer
    */
   async decodeAudioData(arrayBuffer) {
+    if (!arrayBuffer || !(arrayBuffer instanceof ArrayBuffer)) {
+      throw new Error("Invalid audio data format");
+    }
+
+    // Ensure audio context is initialized
     if (!this.audioContext) {
       await this.initializeContext();
     }
-    return this.audioContext.decodeAudioData(arrayBuffer);
+
+    try {
+      // Modern browsers support the promise-based decodeAudioData
+      return await this.audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+      console.error("Audio decoding error:", error);
+      throw new Error(`Failed to decode audio: ${error.message || "Unknown error"}`);
+    }
   }
 
   /**
@@ -192,12 +221,12 @@ export class AudioProcessor {
     const preDelay = this.audioContext.createDelay(0.1);
     const convolver = this.audioContext.createConvolver();
 
-    // Set initial values - adjusted for Motown sound (wetter reverb)
-    dryGain.gain.value = this.reverbEnabled ? 0.75 : 1; // Slightly more dry signal
-    wetGain.gain.value = this.reverbEnabled ? 0.25 : 0; // More wet signal for Motown
-    preDelay.delayTime.value = 0.02; // Shorter pre-delay for tighter sound
+    // Set initial values - optimized for Motown sound
+    dryGain.gain.value = this.reverbEnabled ? 0.8 : 1; // More dry signal for clarity
+    wetGain.gain.value = this.reverbEnabled ? 0.2 : 0; // Less wet signal to reduce muddiness
+    preDelay.delayTime.value = 0.01; // Shorter pre-delay for tighter sound
 
-    // Basic connections (will be adjusted when toggling reverb)
+    // Basic connections
     gainNode.connect(panNode);
 
     // Connect dry path
@@ -222,7 +251,7 @@ export class AudioProcessor {
       wetGain,
       preDelay,
       convolver,
-      ...trackConfig
+      ...trackConfig,
     };
   }
 
@@ -235,12 +264,12 @@ export class AudioProcessor {
     this.reverbEnabled = !this.reverbEnabled;
 
     // Update audio nodes
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       if (!node || !node.dryGain || !node.wetGain) return;
 
       if (this.reverbEnabled) {
-        node.dryGain.gain.value = 0.75; // Adjusted for Motown sound
-        node.wetGain.gain.value = 0.25; // More authentic reverb balance
+        node.dryGain.gain.value = 0.8; // More dry signal
+        node.wetGain.gain.value = 0.2; // Less wet signal
       } else {
         node.dryGain.gain.value = 1;
         node.wetGain.gain.value = 0;
@@ -251,42 +280,23 @@ export class AudioProcessor {
   }
 
   /**
-   * Change reverb character (bright, medium, dark)
-   * @param {string} type - Type of reverb ('bright', 'medium', or 'dark')
+   * Change reverb type
+   * @param {string} type - Type of reverb ('none' or any other value for 'motown')
    * @param {Array} nodes - Array of audio nodes
-   * @returns {Promise<boolean>} Success state
+   * @returns {boolean} Success status
    */
   async changeReverbType(type, nodes) {
-    if (type === 'none') {
-      // Disable reverb completely
-      this.reverbEnabled = false;
-      nodes.forEach(node => {
-        if (!node || !node.dryGain || !node.wetGain) return;
-        node.dryGain.gain.value = 1;
-        node.wetGain.gain.value = 0;
-      });
-      return true;
-    } else if (!['bright', 'medium', 'dark'].includes(type)) {
-      console.error("Invalid reverb type:", type);
-      return false;
-    } else {
-      // Enable reverb with selected type
-      this.reverbEnabled = true;
-      this.reverbType = type;
+    const enableReverb = type !== "none";
 
-      // Reload impulse response with new type
-      await this.loadReverbImpulse();
+    this.reverbEnabled = enableReverb;
 
-      // Update all nodes with new buffer if reverb is enabled
-      nodes.forEach(node => {
-        if (!node || !node.dryGain || !node.wetGain) return;
-        // Adjust balance: reduce wet gain to mitigate excess low-end
-        node.dryGain.gain.value = 0.75;
-        node.wetGain.gain.value = 0.25;
-      });
+    nodes.forEach((node) => {
+      if (!node || !node.dryGain || !node.wetGain) return;
+      node.dryGain.gain.value = enableReverb ? 0.8 : 1;
+      node.wetGain.gain.value = enableReverb ? 0.2 : 0;
+    });
 
-      return true;
-    }
+    return true;
   }
 
   /**
@@ -300,6 +310,39 @@ export class AudioProcessor {
       if (node && node.convolver && this.reverbBuffer) {
         node.convolver.buffer = this.reverbBuffer;
       }
+    });
+  }
+
+  /**
+   * Create an optimized version of a track node tree suitable for caching
+   * @param {Object} nodeTree - Original node tree with all connections
+   * @returns {Object} Simplified version for caching
+   */
+  createCacheableNodeTree(nodeTree) {
+    // Clone only the essential parts that won't change between sessions
+    return {
+      buffer: nodeTree.buffer,
+      gain: nodeTree.gain,
+      pan: nodeTree.pan,
+      name: nodeTree.name,
+      path: nodeTree.path,
+      isSolo: false
+    };
+  }
+
+  /**
+   * Create a new node tree from a cached one
+   * @param {Object} cachedTree - Cached node tree
+   * @returns {Object} Fresh node tree with new audio nodes
+   */
+  recreateNodeTreeFromCache(cachedTree) {
+    // Create fresh audio nodes
+    return this.createTrackNodes(cachedTree.buffer, {
+      gain: cachedTree.gain,
+      pan: cachedTree.pan,
+      name: cachedTree.name,
+      path: cachedTree.path,
+      isSolo: false
     });
   }
 }

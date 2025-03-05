@@ -22,12 +22,15 @@ export class UIManager {
       loading: root.querySelector(".loading-container"),
       tracksContainer: root.querySelector(".tracks-container"),
       reverb: root.querySelector(".reverb-toggle"),
-      reverbMenu: root.querySelector(".reverb-menu"),
-      reverbOptions: root.querySelectorAll(".reverb-option"),
       loadingCount: root.querySelector(".loading-count"),
       loadingProgress: root.querySelector(".loading-progress"),
-      loadingStatus: root.querySelector(".loading-status")
+      loadingStatus: root.querySelector(".loading-status"),
     };
+
+    // Initially hide the tracks container until tracks are loaded
+    if (this.elements.tracksContainer) {
+      this.elements.tracksContainer.style.display = "none";
+    }
   }
 
   /**
@@ -41,11 +44,13 @@ export class UIManager {
       <div class="multitrack-player">
         <div class="player-container">
           <div class="loading-container">
-            <div class="loading-status">Loading...</div>
+            <div class="loading-status-row">
+              <div class="loading-status">Loading...</div>
+              <div class="loading-count">0/0</div>
+            </div>
             <div class="loading-bar">
               <div class="loading-progress"></div>
             </div>
-            <div class="loading-count">0/0</div>
           </div>
           <div class="timeline-container">
             <button class="play-pause-button disabled" disabled>
@@ -66,7 +71,7 @@ export class UIManager {
               <span class="duration">0:00</span>
             </div>
             <div class="reverb-container">
-              <button class="reverb-toggle" title="Toggle Reverb">
+              <button class="reverb-toggle" title="Toggle Motown Reverb">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-radio radio-icon">
                   <circle cx="12" cy="12" r="2"></circle>
                   <path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path>
@@ -75,12 +80,6 @@ export class UIManager {
                   <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
                 </svg>
               </button>
-              <div class="reverb-menu">
-                <button class="reverb-option" data-type="none">None</button>
-                <button class="reverb-option" data-type="bright">Bright</button>
-                <button class="reverb-option active" data-type="medium">Medium</button>
-                <button class="reverb-option" data-type="dark">Dark</button>
-              </div>
             </div>
           </div>
           <div class="tracks-container card-style">
@@ -98,13 +97,44 @@ export class UIManager {
    * @param {number} total - Total number of tracks
    */
   updateLoadingUI(loadedCount, total) {
-    const percent = (loadedCount / total) * 100;
+    // Simple percentage calculation
+    const percent = Math.min(100, Math.max(0, (loadedCount / total) * 100));
+
     if (this.elements.loadingProgress) {
       this.elements.loadingProgress.style.width = `${percent}%`;
     }
+
     if (this.elements.loadingCount) {
       this.elements.loadingCount.textContent = `${loadedCount}/${total}`;
     }
+
+    // If all tracks loaded, fade out the loading container
+    if (loadedCount === total && total > 0) {
+      this.fadeOutLoading();
+    }
+  }
+
+  /**
+   * Fade out the loading container once all tracks are loaded
+   */
+  fadeOutLoading() {
+    if (!this.elements.loading) return;
+
+    // Set all properties at once for better performance
+    Object.assign(this.elements.loading.style, {
+      height: `${this.elements.loading.offsetHeight}px`,
+      overflow: 'hidden',
+      opacity: '0',
+      position: 'absolute',
+      pointerEvents: 'none'
+    });
+
+    // Remove completely from layout after a short delay
+    setTimeout(() => {
+      if (this.elements.loading) {
+        this.elements.loading.classList.add('hidden');
+      }
+    }, 100);
   }
 
   /**
@@ -115,6 +145,19 @@ export class UIManager {
     if (this.elements.loadingStatus) {
       this.elements.loadingStatus.textContent = message;
     }
+
+    // Hide tracks container when "No tracks found" message is displayed
+    if (message === "No tracks found" && this.elements.tracksContainer) {
+      this.elements.tracksContainer.style.display = "none";
+
+      // Remove the visual connection class
+      const timelineContainer = this.elements.playButton?.closest(
+        ".timeline-container",
+      );
+      if (timelineContainer) {
+        timelineContainer.classList.remove("tracks-loaded");
+      }
+    }
   }
 
   /**
@@ -124,53 +167,58 @@ export class UIManager {
    * @param {Function} onKnobChange - Callback for when a knob is adjusted
    */
   createTrackUI(audioNodes, onSoloToggle, onKnobChange) {
-    // Clear existing tracks container first
-    if (!this.elements.tracksContainer) return;
-    this.elements.tracksContainer.innerHTML = '';
+    if (!this.elements.tracksContainer || !audioNodes || !audioNodes.length) return;
 
-    // Make the tracks container visible
-    this.elements.tracksContainer.style.display = "block";
-
-    // Add class to timeline container to connect it visually with tracks
-    const timelineContainer = this.elements.playButton?.closest('.timeline-container');
-    if (timelineContainer) {
-      timelineContainer.classList.add('tracks-loaded');
+    // Skip recreation if tracks are already displayed with same count
+    const validNodes = audioNodes.filter(n => n);
+    if (this.elements.tracksContainer.style.display === "block" &&
+        this.elements.tracksContainer.childElementCount === validNodes.length) {
+      return;
     }
 
-    // Create UI for each track
-    audioNodes.forEach((track, index) => {
-      // Skip any null or undefined tracks
-      if (!track) return;
+    // Clear existing tracks and rebuild
+    this.elements.tracksContainer.innerHTML = "";
+    this.elements.tracksContainer.style.display = "block";
 
-      const trackEl = document.createElement('div');
-      trackEl.className = 'track';
-      trackEl.setAttribute('data-index', index);
+    // Show the tracks container with correct styling
+    const timelineContainer = this.elements.playButton?.closest(".timeline-container");
+    if (timelineContainer) {
+      timelineContainer.classList.add("tracks-loaded");
+    }
+
+    // Create each track
+    audioNodes.forEach((node, index) => {
+      if (!node) return;
+
+      const trackEl = document.createElement("div");
+      trackEl.className = "track";
+      trackEl.setAttribute("data-index", index);
 
       // Add click handler for soloing
-      trackEl.addEventListener('click', (e) => {
+      trackEl.addEventListener("click", (e) => {
         // Only solo if not clicking on a knob
-        if (!e.target.closest('.knob-container')) {
+        if (!e.target.closest(".knob-container")) {
           onSoloToggle(index);
         }
       });
 
       // Create track name element
-      const trackName = document.createElement('div');
-      trackName.className = 'track-name';
-      trackName.textContent = track.name;
+      const trackName = document.createElement("div");
+      trackName.className = "track-name";
+      trackName.textContent = node.name;
 
       // Create controls container
-      const controls = document.createElement('div');
-      controls.className = 'track-controls';
+      const controls = document.createElement("div");
+      controls.className = "track-controls";
 
       // Create gain knob
-      const gainKnob = this.createKnob('gain', track.gain, (value) => {
-        onKnobChange(index, 'gain', value);
+      const gainKnob = this.createKnob("gain", node.gain, (value) => {
+        onKnobChange(index, "gain", value);
       });
 
       // Create pan knob
-      const panKnob = this.createKnob('pan', track.pan, (value) => {
-        onKnobChange(index, 'pan', value);
+      const panKnob = this.createKnob("pan", node.pan, (value) => {
+        onKnobChange(index, "pan", value);
       });
 
       // Add knobs to controls
@@ -194,9 +242,9 @@ export class UIManager {
           "stroke-width": "2",
           "stroke-linecap": "round",
           "stroke-linejoin": "round",
-          fill: "none"
+          fill: "none",
         },
-        root: this.elements.tracksContainer
+        root: this.elements.tracksContainer,
       });
     } catch (error) {
       console.error("Error initializing Lucide icons:", error);
@@ -211,20 +259,20 @@ export class UIManager {
    * @returns {HTMLElement} The knob container element
    */
   createKnob(type, initialValue, onChange) {
-    const container = document.createElement('div');
-    container.className = 'knob-container';
+    const container = document.createElement("div");
+    container.className = "knob-container";
     container.dataset.type = type;
 
     // Create knob element
-    const knob = document.createElement('div');
-    knob.className = 'knob';
+    const knob = document.createElement("div");
+    knob.className = "knob";
 
     // Set initial rotation
     knob.style.transform = `rotate(${this.valueToAngle(initialValue, type)}deg)`;
 
     // Create label
-    const label = document.createElement('div');
-    label.className = 'knob-label';
+    const label = document.createElement("div");
+    label.className = "knob-label";
     label.textContent = type.toUpperCase();
 
     // Add drag handling
@@ -233,9 +281,9 @@ export class UIManager {
     let startValue = initialValue;
 
     // Create tooltip for value display
-    const tooltip = document.createElement('div');
-    tooltip.className = 'knob-tooltip';
-    tooltip.style.display = 'none';
+    const tooltip = document.createElement("div");
+    tooltip.className = "knob-tooltip";
+    tooltip.style.display = "none";
     container.appendChild(tooltip);
 
     const handleMove = (e) => {
@@ -244,14 +292,16 @@ export class UIManager {
       e.preventDefault();
       e.stopPropagation();
 
-      const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+      const clientY = e.type.includes("touch")
+        ? e.touches[0].clientY
+        : e.clientY;
       const deltaY = startY - clientY;
 
       // Different scale for gain vs pan
-      const deltaValue = (deltaY / 100) * (type === 'gain' ? 1 : 2);
+      const deltaValue = (deltaY / 100) * (type === "gain" ? 1 : 2);
 
       // Clamp value depending on type
-      const min = type === 'gain' ? 0 : -1;
+      const min = type === "gain" ? 0 : -1;
       const max = 1;
       const newValue = Math.min(max, Math.max(min, startValue + deltaValue));
 
@@ -259,39 +309,39 @@ export class UIManager {
       onChange(newValue);
 
       tooltip.textContent = newValue.toFixed(2);
-      tooltip.style.display = 'block';
+      tooltip.style.display = "block";
     };
 
     const handleEnd = () => {
       if (!isDragging) return;
       isDragging = false;
-      tooltip.style.display = 'none';
+      tooltip.style.display = "none";
 
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('touchmove', handleMove);
-      document.removeEventListener('mouseup', handleEnd);
-      document.removeEventListener('touchend', handleEnd);
-      document.body.classList.remove('dragging-knob');
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("touchmove", handleMove);
+      document.removeEventListener("mouseup", handleEnd);
+      document.removeEventListener("touchend", handleEnd);
+      document.body.classList.remove("dragging-knob");
     };
 
     const handleStart = (e) => {
       isDragging = true;
-      startY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+      startY = e.type.includes("touch") ? e.touches[0].clientY : e.clientY;
       startValue = initialValue;
 
       e.preventDefault();
       e.stopPropagation();
 
-      document.addEventListener('mousemove', handleMove);
-      document.addEventListener('touchmove', handleMove, { passive: false });
-      document.addEventListener('mouseup', handleEnd);
-      document.addEventListener('touchend', handleEnd);
+      document.addEventListener("mousemove", handleMove);
+      document.addEventListener("touchmove", handleMove, { passive: false });
+      document.addEventListener("mouseup", handleEnd);
+      document.addEventListener("touchend", handleEnd);
 
-      document.body.classList.add('dragging-knob');
+      document.body.classList.add("dragging-knob");
     };
 
-    knob.addEventListener('mousedown', handleStart);
-    knob.addEventListener('touchstart', handleStart, { passive: false });
+    knob.addEventListener("mousedown", handleStart);
+    knob.addEventListener("touchstart", handleStart, { passive: false });
 
     container.appendChild(knob);
     container.appendChild(label);
@@ -334,15 +384,15 @@ export class UIManager {
       this.elements.playButton.classList.toggle("playing", state.isPlaying);
 
       // Update play/pause icons
-      const playIcon = this.elements.playButton.querySelector('.play-icon');
-      const pauseIcon = this.elements.playButton.querySelector('.pause-icon');
+      const playIcon = this.elements.playButton.querySelector(".play-icon");
+      const pauseIcon = this.elements.playButton.querySelector(".pause-icon");
 
       if (state.isPlaying) {
-        if (playIcon) playIcon.style.display = 'none';
-        if (pauseIcon) pauseIcon.style.display = 'inline-block';
+        if (playIcon) playIcon.style.display = "none";
+        if (pauseIcon) pauseIcon.style.display = "inline-block";
       } else {
-        if (playIcon) playIcon.style.display = 'inline-block';
-        if (pauseIcon) pauseIcon.style.display = 'none';
+        if (playIcon) playIcon.style.display = "inline-block";
+        if (pauseIcon) pauseIcon.style.display = "none";
       }
     }
 
@@ -353,11 +403,14 @@ export class UIManager {
 
     // Update time display
     if (this.elements.timeDisplay) {
-      this.elements.timeDisplay.textContent = audioProcessor.formatTime(currentTime);
+      this.elements.timeDisplay.textContent =
+        audioProcessor.formatTime(currentTime);
     }
 
     if (this.elements.duration && state.duration) {
-      this.elements.duration.textContent = audioProcessor.formatTime(state.duration);
+      this.elements.duration.textContent = audioProcessor.formatTime(
+        state.duration,
+      );
     }
 
     // Update playhead and progress bar
@@ -436,27 +489,11 @@ export class UIManager {
     // Setup reverb toggle
     if (this.elements.reverb) {
       this.elements.reverb.addEventListener("click", () => {
-        if (this.elements.reverbMenu) {
-          this.elements.reverbMenu.classList.toggle('show');
-        }
+        // Toggle reverb directly without showing menu
+        callbacks.toggleReverb();
       });
-      // Set initial active state based on default reverb type (assume medium is default)
+      // Set initial active state based on default reverb setting
       this.elements.reverb.classList.add("active");
-    }
-
-    // Setup reverb type options
-    if (this.elements.reverbOptions) {
-      this.elements.reverbOptions.forEach(option => {
-        option.addEventListener('click', () => {
-          const type = option.dataset.type;
-          callbacks.changeReverbType(type);
-
-          // Hide the menu after selection
-          if (this.elements.reverbMenu) {
-            this.elements.reverbMenu.classList.remove('show');
-          }
-        });
-      });
     }
   }
 
@@ -466,31 +503,18 @@ export class UIManager {
    */
   updateReverbUI(enabled) {
     if (this.elements.reverb) {
-      this.elements.reverb.classList.toggle('active', enabled);
-    }
-
-    // If reverb is disabled, hide the menu
-    if (!enabled && this.elements.reverbMenu) {
-      this.elements.reverbMenu.classList.remove('show');
+      this.elements.reverb.classList.toggle("active", enabled);
     }
   }
 
   /**
-   * Update the UI to reflect the selected reverb type
+   * Update the UI to reflect the selected reverb type - simplified
    * @param {string} type - Type of reverb
    */
   updateReverbTypeUI(type) {
-    if (!this.elements.reverbOptions) return;
-    this.elements.reverbOptions.forEach(option => {
-      option.classList.toggle('active', option.dataset.type === type);
-    });
-    // Update the reverb toggle button active state: disable if 'none' is selected
+    // Simplified - only handle 'none' type
     if (this.elements.reverb) {
-      if (type === 'none') {
-        this.elements.reverb.classList.remove('active');
-      } else {
-        this.elements.reverb.classList.add('active');
-      }
+      this.elements.reverb.classList.toggle("active", type !== "none");
     }
   }
 
@@ -499,7 +523,9 @@ export class UIManager {
    * @param {Array} tracks - Array of track objects with isSolo property
    */
   updateSoloUI(tracks) {
-    const trackElements = [...this.elements.tracksContainer.querySelectorAll('.track')];
+    const trackElements = [
+      ...this.elements.tracksContainer.querySelectorAll(".track"),
+    ];
 
     trackElements.forEach((element, index) => {
       if (index < tracks.length && tracks[index]) {

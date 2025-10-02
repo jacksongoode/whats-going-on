@@ -1,133 +1,99 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>What's Going On?</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link
-      rel="icon"
-      href="public/assets/img/garfield-bg.png"
-      type="image/png"
-    />
-    <!-- Import Lucide icons globally -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script>
-      window.addEventListener("DOMContentLoaded", () => {
-        lucide.createIcons();
-      });
-    </script>
-  </head>
-  <body>
-    <div class="container">
-      <div class="title-container">
-        <div class="title-row">
-          <h1 class="title">What's Going On?</h1>
-          <img
-            src="public/assets/img/garfield-bg.png"
-            alt="Garfield"
-            class="garfield-icon"
-          />
-        </div>
-        <div class="description">
-          Born from Four Tops bassist Obie Benson's witness of police violence
-          against Berkeley protesters and Gaye's brother's harrowing letters
-          from Vietnam. "What's Going On" channeled Marvin Gaye's own personal
-          grief after the death of duet partner Tammi Terrell into a collective
-          catharsis. Its jazz-infused arrangements and layered vocals - recorded
-          in one middnight take - defied Motown's apolitical formula, bringing
-          soul music's first protest concept album with one enduring question.
-        </div>
-      </div>
-
-      <multitrack-player
-        id="player"
-        src="public/tracks.json"
-      ></multitrack-player>
-    </div>
-
-    <script type="module">
-      // Import the component
-      import "./src/components/multitrack-player/multitrack-player.js";
-
-      // SAFARI FIX: Function to unlock audio
-      function unlockAudio() {
-        // Create a silent audio element
-        const silentAudio = new Audio();
-        silentAudio.src =
-          "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjMyLjEwNAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD/wAARCAAIAAgDASIAAhEBAxEB/8QASwABAAAAAAAAAAAAAAAAAAAACwEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AHjn//2Q==";
-        silentAudio.load();
-
-        // Try to play - this will be blocked by the browser if no user interaction,
-        // but it will at least get the audio system initialized
-        const playPromise = silentAudio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log("Audio system unlocked");
-            })
-            .catch((error) => {
-              console.log(
-                "Audio unlock failed - requires user interaction",
-                error,
-              );
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>What's Going On?</title>
+        <link rel="stylesheet" href="styles.css" />
+        <link
+            rel="icon"
+            href="public/assets/img/garfield-bg.png"
+            type="image/png"
+        />
+        <!-- Import Lucide icons globally -->
+        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+        <script>
+            window.addEventListener("DOMContentLoaded", () => {
+                lucide.createIcons();
             });
-        }
-      }
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="title-container">
+                <div class="title-row">
+                    <h1 class="title">What's Going On?</h1>
+                    <img
+                        src="public/assets/img/garfield-bg.png"
+                        alt="Garfield"
+                        class="garfield-icon"
+                    />
+                </div>
+                <div class="description">
+                    Born in part from the police violence against student
+                    protesters at Berkeley, harrowing letters from Vietnam from
+                    his brother and Gaye's own personal grief in the wake duet
+                    partner Tammi Terrell's death into a collective catharsis.
+                    Jazz-infused arrangements and layered vocals - recorded in a
+                    single midnight take - rejected Motown's apolitical formula,
+                    bringing soul music's first protest concept album with one
+                    enduring question.
+                </div>
+            </div>
 
-      // Unlock audio as soon as possible
-      document.addEventListener("click", unlockAudio, { once: true });
-      document.addEventListener("touchend", unlockAudio, { once: true });
+            <multitrack-player
+                id="player"
+                src="public/tracks.json"
+                stylesheet="dist/multitrack-player.themed.css"
+            ></multitrack-player>
+        </div>
 
-      document.addEventListener("DOMContentLoaded", () => {
-        const player = document.getElementById("player");
+        <script type="module">
+            import "./src/components/multitrack-player/multitrack-player.js";
 
-        // Enable spacebar shortcut for play/pause
-        document.addEventListener("keydown", (e) => {
-          if (e.code === "Space") {
-            e.preventDefault();
-            player.state.isPlaying ? player.pause() : player.play();
-          }
-        });
+            document.addEventListener("DOMContentLoaded", () => {
+                const player = document.getElementById("player");
 
-        // Animate title when playing
-        const title = document.querySelector(".title");
+                document.addEventListener("keydown", (e) => {
+                    if (e.code === "Space") {
+                        e.preventDefault();
+                        player.state.isPlaying ? player.pause() : player.play();
+                    }
+                });
 
-        // Add wave animation to each letter in the title
-        if (title) {
-          const text = title.textContent;
-          title.innerHTML = "";
+                const title = document.querySelector(".title");
 
-          // Process the text character by character to preserve spaces
-          for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            const span = document.createElement("span");
+                if (title) {
+                    const text = title.textContent;
+                    title.innerHTML = "";
 
-            // Use non-breaking space for actual spaces to maintain layout
-            span.textContent = char === " " ? "\u00A0" : char;
-            span.style.setProperty("--i", i);
+                    for (let i = 0; i < text.length; i++) {
+                        const char = text[i];
+                        const span = document.createElement("span");
+                        span.textContent = char === " " ? "\u00A0" : char;
+                        span.style.setProperty("--i", i);
+                        title.appendChild(span);
+                    }
 
-            title.appendChild(span);
-          }
+                    player.addEventListener("play", () => {
+                        title.classList.add("playing");
+                    });
 
-          // Add animation class when playing
-          player.addEventListener("play", () => {
-            title.classList.add("playing");
-          });
+                    player.addEventListener("pause", () => {
+                        title.classList.remove("playing");
+                    });
+                }
 
-          player.addEventListener("pause", () => {
-            title.classList.remove("playing");
-          });
-        }
-
-        // Toggle description on title click
-        title.addEventListener("click", () => {
-          document.querySelector(".title-container").classList.toggle("active");
-        });
-
-        // Try to unlock audio on page load - this may not work due to autoplay policies
-        unlockAudio();
-      });
-    </script>
-  </body>
+                if (title) {
+                    const titleContainer =
+                        document.querySelector(".title-container");
+                    title.addEventListener("click", () => {
+                        if (titleContainer) {
+                            titleContainer.classList.toggle("active");
+                        }
+                    });
+                }
+            });
+        </script>
+    </body>
 </html>

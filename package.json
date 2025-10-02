@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "bun server.js",
-    "dev": "bun --watch server.js"
+    "dev": "bun --watch server.js",
+    "demo": "ENTRYPOINT=/index.html bun server.js",
+    "example": "ENTRYPOINT=/minimal.html bun server.js"
   },
   "dependencies": {
     "lucide": "^0.476.0"

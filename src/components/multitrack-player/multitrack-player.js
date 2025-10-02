@@ -1,567 +1,461 @@
-import { AudioCache } from "./modules/audio-cache.js";
 import { AudioProcessor } from "./modules/audio-processor.js";
 import { UIManager } from "./modules/ui-manager.js";
-import { TrackLoader } from "./modules/track-loader.js";
 
-/**
- * Multitrack Player Web Component - A fully-featured multitrack audio player
- */
 class MultitrackPlayer extends HTMLElement {
-  static get observedAttributes() {
-    return ["src"];
-  }
-
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-
-    // Initialize component modules
-    this.audioCache = new AudioCache();
-    this.audioProcessor = new AudioProcessor();
-    this.uiManager = new UIManager();
-    this.trackLoader = new TrackLoader(this.audioProcessor, this.audioCache);
-
-    // Component state
-    this._state = {
-      isPlaying: false,
-      isReady: false,
-      currentTime: 0,
-      duration: 0,
-      startTime: 0,
-      isDragging: false,
-    };
-
-    // Track audio nodes
-    this.audioNodes = [];
-
-    // Playback timer
-    this.playbackTimer = null;
-
-    // Initialize flags
-    this.audioInitialized = false;
-    this.clickHandlerAdded = false;
-    this.tracksLoading = false;
-  }
-
-  // State getter
-  get state() {
-    return this._state;
-  }
-
-  async connectedCallback() {
-    // Create the shadow DOM
-    if (!this.shadowRoot.firstChild) {
-      const template = this.uiManager.createTemplate();
-      this.shadowRoot.appendChild(template);
-
-      // Initialize Lucide icons if available
-      try {
-        window.lucide?.createIcons({
-          attrs: {
-            class: ["lucide"],
-            stroke: "currentColor",
-            "stroke-width": "2",
-            "stroke-linecap": "round",
-            "stroke-linejoin": "round",
-            fill: "none",
-          },
-          root: this.shadowRoot,
-        });
-      } catch (error) {
-        console.error("Error initializing Lucide icons:", error);
-      }
-    }
-
-    // Cache all UI elements
-    this.uiManager.cacheElements(this.shadowRoot);
-
-    // First interaction with UI can initialize audio context
-    // Add click handler to element if not already added
-    if (!this.clickHandlerAdded) {
-      // Use capture to catch all clicks on the container
-      this.shadowRoot.addEventListener(
-        "click",
-        this.handleFirstInteraction.bind(this),
-        { once: true, capture: true }
-      );
-
-      // Try to initialize audio context early, after showing UI
-      // This is a performance optimization - many browsers now allow
-      // audio context creation without user interaction
-      setTimeout(() => {
-        this.tryInitializeAudioEarly();
-      }, 100);
-
-      this.clickHandlerAdded = true;
-    }
-
-    // Setup UI handlers
-    this.uiManager.setupInitialUI({
-      play: () => this.play(),
-      pause: () => this.pause(),
-      stop: () => this.stop(),
-      seek: (position) => this.seek(position),
-      toggleReverb: () => this.toggleReverb(),
-      changeReverbType: (type) => this.changeReverbType(type),
-      isPlaying: () => this._state.isPlaying,
-      isReady: () => this._state.isReady,
-    });
-
-    // Start loading tracks if there is a src attribute
-    // This will start loading tracks immediately without waiting for audio context
-    if (this.hasAttribute("src") && !this.tracksLoading) {
-      this.loadTracks();
-    }
-  }
-
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (name === "src" && oldValue !== newValue && !this.tracksLoading) {
-      this.loadTracks();
-    }
-  }
-
-  /**
-   * Try to initialize audio early if browser allows it
-   * This is a performance optimization
-   */
-  async tryInitializeAudioEarly() {
-    if (this.audioInitialized) return;
-
-    try {
-      // Try to initialize audio context without user interaction
-      await this.audioProcessor.initializeContext();
-      this.audioInitialized = true;
-      console.log("Audio context initialized early");
-
-      // If we already have tracks loaded, update player state
-      if (this.audioNodes.length > 0) {
-        this._state.isReady = true;
-        this.updateUI();
-      }
-    } catch (error) {
-      // Silently fail - we'll try again on user interaction
-      console.log("Early audio context init failed, will try again on user interaction");
-    }
-  }
-
-  /**
-   * Handle the first user interaction to unlock audio
-   */
-  handleFirstInteraction() {
-    // Initialize audio on first interaction
-    if (!this.audioInitialized) {
-      this.initializeAudio();
-    }
-  }
-
-  /**
-   * Initialize Web Audio API
-   * This is needed for playback and must be triggered by user interaction
-   * but we can load track data before this
-   */
-  async initializeAudio() {
-    if (this.audioInitialized) return;
-
-    try {
-      // Initialize audio context
-      await this.audioProcessor.initializeContext();
-      this.audioInitialized = true;
-
-      // If tracks are already loaded, just update the player state without recreating track UI
-      if (this.audioNodes.length > 0) {
-        // Only update player state
-        this._state.isReady = true;
-
-        // Enable play button
-        if (this.uiManager.elements.playButton) {
-          this.uiManager.elements.playButton.disabled = false;
-          this.uiManager.elements.playButton.classList.remove("disabled");
-        }
-
-        // Update duration if not already set
-        if (!this._state.duration) {
-          for (const node of this.audioNodes) {
-            if (node && node.buffer) {
-              this._state.duration = node.buffer.duration;
-              break;
-            }
-          }
-          // Update UI with duration
-          this.updateUI();
-        }
-      }
-    } catch (error) {
-      console.error("Error initializing audio:", error);
-      this.uiManager.updateLoadingStatus(
-        "Error initializing audio: " + error.message,
-      );
-    }
-  }
-
-  /**
-   * Load tracks from the src attribute
-   */
-  async loadTracks() {
-    if (this.tracksLoading) return;
-    this.tracksLoading = true;
-
-    try {
-      // Get tracks src from attribute
-      const src = this.getAttribute("src");
-      if (!src) {
-        this.uiManager.updateLoadingStatus("No track source specified");
-        return;
-      }
-
-      // Fetch and parse the tracks JSON
-      const response = await fetch(src);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tracks: ${response.statusText}`);
-      }
-      const tracks = await response.json();
-
-      // Update loading status
-      this.uiManager.updateLoadingStatus("Loading tracks...");
-
-      // Clear previous tracks but preserve memory cache
-      this.audioNodes = [];
-
-      // Load tracks
-      this.audioNodes = await this.trackLoader.loadTracks(
-        tracks,
-        // Progress callback - update UI for each track
-        (loadedCount, total) => {
-          this.uiManager.updateLoadingUI(loadedCount, total);
-        },
-        // Complete callback
-        (audioNodes, successfulLoads) => {
-          this.audioNodes = audioNodes;
-
-          // Create track UI immediately after loading
-          this.finalizeTracks();
-
-          // Auto-initialize audio context if not already initialized
-          if (!this.audioInitialized && successfulLoads > 0) {
-            this.initializeAudio();
-          }
-        },
-        (msg) => this.uiManager.updateLoadingStatus(msg),
-      );
-    } catch (error) {
-      console.error("Error loading tracks:", error);
-      this.uiManager.updateLoadingStatus(`Error: ${error.message}`);
-    } finally {
-      this.tracksLoading = false;
-    }
-  }
-
-  /**
-   * Once tracks are loaded and audio context is initialized,
-   * finalize setup and make player ready
-   */
-  finalizeTracks() {
-    // Check if any tracks were successfully loaded
-    const successfulLoads = this.audioNodes.filter((n) => n).length;
-
-    if (successfulLoads > 0) {
-      // Get duration from the first track with a buffer
-      for (const node of this.audioNodes) {
-        if (node && node.buffer) {
-          this._state.duration = node.buffer.duration;
-          break;
-        }
-      }
-
-      // Create track UI immediately, regardless of audio context status
-      this.uiManager.createTrackUI(
-        this.audioNodes,
-        (index) => this.toggleSolo(index),
-        (index, type, value) => this.updateTrackControl(index, type, value),
-      );
-
-      // Only set player as ready if audio context is initialized
-      if (this.audioInitialized) {
-        this._state.isReady = true;
-
-        // Enable play button
-        if (this.uiManager.elements.playButton) {
-          this.uiManager.elements.playButton.disabled = false;
-          this.uiManager.elements.playButton.classList.remove("disabled");
-        }
-      }
-
-      // Update UI once after setup
-      this.updateUI();
-
-      // Hide loading indicator
-      if (this.uiManager.elements.loading) {
-        this.uiManager.elements.loading.classList.add("hidden");
-      }
-    } else {
-      this.uiManager.updateLoadingStatus("Failed to load any tracks");
-    }
-  }
-
-  /**
-   * Update a track's control value (gain or pan)
-   */
-  updateTrackControl(index, type, value) {
-    const track = this.audioNodes[index];
-    if (!track) return;
-
-    if (type === "gain") {
-      track.gain = value;
-      if (track.gainNode) {
-        // Check if track is soloed or no tracks are soloed
-        const hasSoloTracks = this.audioNodes.some(
-          (node) => node && node.isSolo,
-        );
-        const shouldMute = hasSoloTracks && !track.isSolo;
-        track.gainNode.gain.value = shouldMute ? 0 : value;
-      }
-    } else if (type === "pan") {
-      track.pan = value;
-      if (track.panNode) {
-        track.panNode.pan.value = value;
-      }
-    }
-  }
-
-  /**
-   * Toggle solo state for a track
-   */
-  toggleSolo(index) {
-    if (
-      index < 0 ||
-      index >= this.audioNodes.length ||
-      !this.audioNodes[index]
-    ) {
-      return;
-    }
-
-    const track = this.audioNodes[index];
-    track.isSolo = !track.isSolo;
-
-    // Update UI
-    this.uiManager.updateSoloUI(this.audioNodes);
-
-    // Update gain values based on solo state
-    const hasSoloTracks = this.audioNodes.some((node) => node && node.isSolo);
-    this.audioNodes.forEach((node) => {
-      if (node && node.gainNode) {
-        const newGain = hasSoloTracks
-          ? node.isSolo
-            ? node.gain
-            : 0
-          : node.gain;
-        node.gainNode.gain.value = newGain;
-      }
-    });
-  }
-
-  /**
-   * Toggle reverb effect
-   */
-  toggleReverb() {
-    const reverbEnabled = this.audioProcessor.toggleReverb(this.audioNodes);
-    this.uiManager.updateReverbUI(reverbEnabled);
-  }
-
-  /**
-   * Change reverb type (bright, medium, dark)
-   * @param {string} type - Type of reverb
-   */
-  async changeReverbType(type) {
-    if (!this.audioNodes || this.audioNodes.length === 0) return;
-
-    const success = await this.audioProcessor.changeReverbType(
-      type,
-      this.audioNodes,
-    );
-    if (success) {
-      this.uiManager.updateReverbTypeUI(type);
-    }
-  }
-
-  /**
-   * Start playback
-   */
-  play() {
-    if (
-      !this.audioNodes ||
-      this.audioNodes.length === 0 ||
-      this._state.isPlaying
-    )
-      return;
-
-    // Use audio context currentTime as reference
-    const startTime =
-      this.audioProcessor.audioContext.currentTime - this._state.currentTime;
-
-    // Create and start audio sources for each track
-    this.audioNodes.forEach((node) => {
-      if (!node || !node.buffer) return;
-
-      node.source = this.audioProcessor.audioContext.createBufferSource();
-      node.source.buffer = node.buffer;
-      node.source.connect(node.gainNode);
-      node.source.start(0, this._state.currentTime);
-    });
-
-    // Update state
-    this._state.isPlaying = true;
-    this._state.startTime = startTime;
-
-    this.dispatchEvent(new CustomEvent("play"));
-
-    // Update UI
-    this.updateUI();
-
-    // Start the timer for ongoing UI updates
-    this.startPlaybackTimer();
-  }
-
-  /**
-   * Pause playback
-   */
-  pause() {
-    if (!this._state.isPlaying) return;
-
-    // Update current time before stopping
-    this._state.currentTime =
-      this.audioProcessor.audioContext.currentTime - this._state.startTime;
-
-    // Stop all sources
-    this.audioNodes.forEach((node) => {
-      if (node && node.source) {
-        node.source.stop();
-        node.source = null;
-      }
-    });
-
-    // Update state
-    this._state.isPlaying = false;
-
-    this.dispatchEvent(new CustomEvent("pause"));
-
-    // Update UI
-    this.updateUI();
-
-    // Stop the timer
-    this.stopPlaybackTimer();
-  }
-
-  /**
-   * Stop playback and reset to beginning
-   */
-  stop() {
-    // Stop all sources
-    if (this._state.isPlaying) {
-      this.audioNodes.forEach((node) => {
-        if (node && node.source) {
-          node.source.stop();
-          node.source = null;
-        }
-      });
-    }
-
-    // Reset state
-    this._state.isPlaying = false;
-    this._state.currentTime = 0;
-
-    this.dispatchEvent(new CustomEvent("pause"));
-
-    // Update UI
-    this.updateUI();
-
-    // Stop the timer
-    this.stopPlaybackTimer();
-  }
-
-  /**
-   * Seek to a specific position (0-1)
-   */
-  seek(position) {
-    if (!this._state.isReady || !this._state.duration) return;
-    this.seekTo(position * this._state.duration);
-  }
-
-  /**
-   * Seek to a specific time in seconds
-   */
-  seekTo(timeInSeconds) {
-    if (!this.audioNodes || !this._state.duration) return;
-
-    // Clamp the value to the valid range
-    const seekTime = Math.max(0, Math.min(timeInSeconds, this._state.duration));
-
-    // Store whether we were playing before seeking
-    const wasPlaying = this._state.isPlaying;
-
-    // Stop all current playback
-    this.audioNodes.forEach((node) => {
-      if (node && node.source) {
-        node.source.stop();
-        node.source = null;
-      }
-    });
-
-    // Update the current time
-    this._state.currentTime = seekTime;
-    this._state.startTime = this.audioProcessor.audioContext.currentTime - seekTime;
-
-    // If we were playing, restart playback at new position
-    if (wasPlaying) {
-      // Create and start audio sources for each track at new position
-      this.audioNodes.forEach((node) => {
-        if (!node || !node.buffer) return;
-
-        node.source = this.audioProcessor.audioContext.createBufferSource();
-        node.source.buffer = node.buffer;
-        node.source.connect(node.gainNode);
-        node.source.start(0, seekTime);
-      });
-    }
-
-    // Update UI
-    this.updateUI();
-  }
-
-  /**
-   * Start the playback timer for UI updates
-   */
-  startPlaybackTimer() {
-    if (this.playbackTimer) clearInterval(this.playbackTimer);
-
-    this.playbackTimer = setInterval(() => {
-      this.updateUI();
-
-      // Check if we've reached the end
-      const currentTime =
-        this.audioProcessor.audioContext.currentTime - this._state.startTime;
-      if (this._state.isPlaying && currentTime >= this._state.duration) {
-        this.stop();
-      }
-    }, 50);
-  }
-
-  /**
-   * Stop the playback timer
-   */
-  stopPlaybackTimer() {
-    if (this.playbackTimer) {
-      clearInterval(this.playbackTimer);
-      this.playbackTimer = null;
-    }
-  }
-
-  /**
-   * Update the UI to reflect current state
-   */
-  updateUI() {
-    this.uiManager.updatePlayerUI(this._state, this.audioProcessor);
-  }
+	static get observedAttributes() {
+		return ["src", "stylesheet"];
+	}
+
+	constructor() {
+		super();
+		this.attachShadow({ mode: "open" });
+
+		this.audioProcessor = new AudioProcessor();
+		this.uiManager = new UIManager();
+
+		this.state = {
+			isPlaying: false,
+			isReady: false,
+			currentTime: 0,
+			duration: 0,
+			startTime: 0,
+		};
+
+		this.audioNodes = [];
+		this.rawAudioData = [];
+		this.playbackTimer = null;
+		this.initialized = false;
+		this.loading = false;
+		this.cacheName = "multitrack-audio-v1";
+		this.decodingStarted = false;
+		this.decodingPromise = null;
+	}
+
+	async connectedCallback() {
+		const template = this.uiManager.createTemplate();
+		this.shadowRoot.appendChild(template);
+
+		this.uiManager.cacheElements(this.shadowRoot);
+		this.loadStylesheet();
+		this.setupUI();
+
+		if (this.hasAttribute("src")) {
+			requestAnimationFrame(() => {
+				this.loadTracks();
+			});
+		}
+	}
+
+	attributeChangedCallback(name, oldValue, newValue) {
+		if (name === "src" && oldValue !== newValue) {
+			this.loadTracks();
+		}
+		if (name === "stylesheet" && oldValue !== newValue) {
+			this.loadStylesheet();
+		}
+	}
+
+	loadStylesheet() {
+		// Only load external stylesheet if specified (for theming/overrides)
+		const stylesheetUrl = this.getAttribute("stylesheet");
+		if (!stylesheetUrl) return;
+
+		const existing = this.shadowRoot.querySelector("link[rel=stylesheet]");
+		if (existing) existing.remove();
+
+		const link = document.createElement("link");
+		link.rel = "stylesheet";
+		link.href = stylesheetUrl;
+		this.shadowRoot.appendChild(link);
+	}
+
+	setupUI() {
+		this.uiManager.setupInitialUI({
+			play: () => this.play(),
+			pause: () => this.pause(),
+			stop: () => this.stop(),
+			seek: (position) => this.seek(position),
+			toggleReverb: () => this.toggleReverb(),
+			isPlaying: () => this.state.isPlaying,
+			isReady: () => this.state.isReady,
+		});
+	}
+
+	async initialize() {
+		if (this.initialized) return;
+
+		try {
+			await this.audioProcessor.initializeContext();
+			this.initialized = true;
+		} catch (error) {
+			console.error("Failed to initialize audio:", error);
+			throw error;
+		}
+	}
+
+	async getCachedAudio(url) {
+		try {
+			const cache = await caches.open(this.cacheName);
+			const cached = await cache.match(url);
+			if (cached) {
+				return await cached.arrayBuffer();
+			}
+		} catch (error) {
+			console.warn("Cache read failed:", error);
+		}
+		return null;
+	}
+
+	async cacheAudio(url, response) {
+		try {
+			const cache = await caches.open(this.cacheName);
+			await cache.put(url, response);
+		} catch (error) {
+			console.warn("Cache write failed:", error);
+		}
+	}
+
+	async loadTracks() {
+		const src = this.getAttribute("src");
+		if (!src || this.loading) return;
+
+		this.loading = true;
+		this.uiManager.updateLoadingUI(0, 1, "Initializing...");
+
+		try {
+			const response = await fetch(src);
+			const tracks = await response.json();
+
+			this.uiManager.updateLoadingUI(0, tracks.length, "Loading tracks...");
+
+			const nodes = [];
+			for (let i = 0; i < tracks.length; i++) {
+				try {
+					const track = tracks[i];
+
+					let arrayBuffer = await this.getCachedAudio(track.path);
+					const usedPath = track.path;
+
+					if (!arrayBuffer) {
+						console.log("Fetching from network:", track.name);
+						const response = await fetch(track.path);
+						this.cacheAudio(track.path, response.clone());
+						arrayBuffer = await response.arrayBuffer();
+					} else {
+						console.log("Cache hit:", track.name);
+					}
+
+					nodes.push({ arrayBuffer, config: { ...track, path: usedPath } });
+
+					this.uiManager.updateLoadingUI(i + 1, tracks.length);
+				} catch (error) {
+					console.error(`Error loading track ${i}:`, error);
+					nodes.push(null);
+				}
+			}
+
+			this.rawAudioData = nodes.filter((n) => n);
+
+			if (this.rawAudioData.length > 0) {
+				this.uiManager.updateLoadingUI(
+					nodes.length,
+					nodes.length,
+					"Ready to play",
+				);
+
+				setTimeout(() => {
+					this.uiManager.showPlayerControls();
+					this.uiManager.fadeOutLoading();
+					this.state.isReady = true;
+					this.updateUI();
+
+					console.log(
+						`✓ All ${this.rawAudioData.length} tracks loaded. Click anywhere to start decoding.`,
+					);
+
+					const startDecode = (e) => {
+						console.log(
+							"Click detected on:",
+							e.target.tagName || e.target.nodeName,
+						);
+						if (!this.decodingPromise) {
+							console.log("→ Starting background decode...");
+							this.uiManager.showSpinner();
+							this.decodeTracksInBackground();
+						} else {
+							console.log("→ Decode already in progress");
+						}
+					};
+
+					this.shadowRoot.addEventListener("click", startDecode, {
+						once: true,
+						capture: true,
+					});
+					document.addEventListener("click", startDecode, {
+						once: true,
+						capture: true,
+					});
+				}, 500);
+			} else {
+				this.updateUI();
+			}
+		} catch (error) {
+			console.error("Error loading tracks:", error);
+			this.uiManager.updateLoadingUI(0, 0, `Error: ${error.message}`);
+		} finally {
+			this.loading = false;
+		}
+	}
+
+	async decodeTracksInBackground() {
+		if (this.decodingPromise) return this.decodingPromise;
+		if (this.audioNodes.length > 0 || this.rawAudioData.length === 0) return;
+
+		this.decodingPromise = (async () => {
+			if (!this.initialized) {
+				try {
+					await this.initialize();
+				} catch (error) {
+					console.warn(
+						"Cannot decode yet, audio context needs user interaction",
+					);
+					this.decodingPromise = null;
+					return;
+				}
+			}
+
+			const total = this.rawAudioData.length;
+			const startTime = performance.now();
+
+			console.log(`🎵 Decoding ${total} tracks in parallel...`);
+
+			const decodePromises = this.rawAudioData.map(async (item) => {
+				let audioBuffer;
+
+				try {
+					audioBuffer = await this.audioProcessor.decodeAudioData(
+						item.arrayBuffer,
+					);
+				} catch (decodeError) {
+					if (item.config.fallback) {
+						try {
+							let fallbackBuffer = await this.getCachedAudio(
+								item.config.fallback,
+							);
+
+							if (!fallbackBuffer) {
+								const response = await fetch(item.config.fallback);
+								this.cacheAudio(item.config.fallback, response.clone());
+								fallbackBuffer = await response.arrayBuffer();
+							}
+
+							audioBuffer =
+								await this.audioProcessor.decodeAudioData(fallbackBuffer);
+						} catch (fallbackError) {
+							console.error(`Both formats failed for ${item.config.name}`);
+							return null;
+						}
+					} else {
+						return null;
+					}
+				}
+
+				return this.audioProcessor.createTrackNodes(audioBuffer, item.config);
+			});
+
+			this.audioNodes = await Promise.all(decodePromises);
+			this.state.duration =
+				this.audioNodes.find((n) => n)?.buffer.duration || 0;
+
+			const decodeTime = ((performance.now() - startTime) / 1000).toFixed(2);
+			const successful = this.audioNodes.filter((n) => n).length;
+			console.log(
+				`✓ Successfully decoded ${successful}/${total} tracks in ${decodeTime}s`,
+			);
+
+			this.uiManager.hideSpinner();
+
+			this.uiManager.createTrackUI(
+				this.audioNodes,
+				(index) => this.toggleSolo(index),
+				(index, type, value) => this.updateTrackControl(index, type, value),
+			);
+
+			this.dispatchEvent(
+				new CustomEvent("tracks-ready", { detail: { decodeTime } }),
+			);
+		})();
+
+		return this.decodingPromise;
+	}
+
+	updateTrackControl(index, type, value) {
+		const track = this.audioNodes[index];
+		if (!track) return;
+
+		if (type === "gain") {
+			track.gain = value;
+			if (track.gainNode) {
+				const hasSolo = this.audioNodes.some((n) => n?.isSolo);
+				track.gainNode.gain.value = hasSolo && !track.isSolo ? 0 : value;
+			}
+		} else if (type === "pan") {
+			track.pan = value;
+			if (track.panNode) {
+				track.panNode.pan.value = value;
+			}
+		}
+	}
+
+	toggleSolo(index) {
+		const track = this.audioNodes[index];
+		if (!track) return;
+
+		track.isSolo = !track.isSolo;
+		this.uiManager.updateSoloUI(this.audioNodes);
+
+		const hasSolo = this.audioNodes.some((n) => n?.isSolo);
+		this.audioNodes.forEach((node) => {
+			if (node?.gainNode) {
+				node.gainNode.gain.value = hasSolo && !node.isSolo ? 0 : node.gain;
+			}
+		});
+	}
+
+	toggleReverb() {
+		const enabled = this.audioProcessor.toggleReverb(this.audioNodes);
+		this.uiManager.updateReverbUI(enabled);
+	}
+
+	async play() {
+		if (!this.state.isReady || this.state.isPlaying) return;
+
+		if (this.audioNodes.length === 0) {
+			this.uiManager.updateLoadingUI(0, 1, "Preparing audio...");
+			this.uiManager.elements.loading.classList.remove("hidden");
+			await this.decodeTracksInBackground();
+			this.uiManager.fadeOutLoading();
+		}
+
+		if (!this.initialized) {
+			await this.initialize();
+		}
+
+		const ctx = this.audioProcessor.audioContext;
+		const startTime = ctx.currentTime - this.state.currentTime;
+
+		this.audioNodes.forEach((node) => {
+			if (!node?.buffer) return;
+
+			node.source = ctx.createBufferSource();
+			node.source.buffer = node.buffer;
+			node.source.connect(node.gainNode);
+			node.source.start(0, this.state.currentTime);
+		});
+
+		this.state.isPlaying = true;
+		this.state.startTime = startTime;
+		this.dispatchEvent(new CustomEvent("play"));
+		this.updateUI();
+		this.startPlaybackTimer();
+	}
+
+	pause() {
+		if (!this.state.isPlaying) return;
+
+		const ctx = this.audioProcessor.audioContext;
+		this.state.currentTime = ctx.currentTime - this.state.startTime;
+
+		this.audioNodes.forEach((node) => {
+			if (node?.source) {
+				node.source.stop();
+				node.source = null;
+			}
+		});
+
+		this.state.isPlaying = false;
+		this.dispatchEvent(new CustomEvent("pause"));
+		this.updateUI();
+		this.stopPlaybackTimer();
+	}
+
+	stop() {
+		if (this.state.isPlaying) {
+			this.audioNodes.forEach((node) => {
+				if (node?.source) {
+					node.source.stop();
+					node.source = null;
+				}
+			});
+		}
+
+		this.state.isPlaying = false;
+		this.state.currentTime = 0;
+		this.dispatchEvent(new CustomEvent("pause"));
+		this.updateUI();
+		this.stopPlaybackTimer();
+	}
+
+	seek(position) {
+		if (!this.state.isReady || !this.state.duration) return;
+
+		const seekTime = Math.max(
+			0,
+			Math.min(position * this.state.duration, this.state.duration),
+		);
+		const wasPlaying = this.state.isPlaying;
+
+		this.audioNodes.forEach((node) => {
+			if (node?.source) {
+				node.source.stop();
+				node.source = null;
+			}
+		});
+
+		this.state.currentTime = seekTime;
+
+		if (wasPlaying) {
+			const ctx = this.audioProcessor.audioContext;
+			this.state.startTime = ctx.currentTime - seekTime;
+
+			this.audioNodes.forEach((node) => {
+				if (!node?.buffer) return;
+
+				node.source = ctx.createBufferSource();
+				node.source.buffer = node.buffer;
+				node.source.connect(node.gainNode);
+				node.source.start(0, seekTime);
+			});
+		}
+
+		this.updateUI();
+	}
+
+	startPlaybackTimer() {
+		if (this.playbackTimer) clearInterval(this.playbackTimer);
+
+		this.playbackTimer = setInterval(() => {
+			const ctx = this.audioProcessor.audioContext;
+			const currentTime = ctx.currentTime - this.state.startTime;
+
+			if (this.state.isPlaying && currentTime >= this.state.duration) {
+				this.stop();
+			}
+
+			this.updateUI();
+		}, 50);
+	}
+
+	stopPlaybackTimer() {
+		if (this.playbackTimer) {
+			clearInterval(this.playbackTimer);
+			this.playbackTimer = null;
+		}
+	}
+
+	updateUI() {
+		this.uiManager.updatePlayerUI(this.state, this.audioProcessor);
+	}
 }
 
-// Register the custom element
 customElements.define("multitrack-player", MultitrackPlayer);

@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Bass",
+    "path": "public/assets/tracks/whats/bass.mp3",
+    "fallback": "public/assets/tracks/whats/bass.ogg"
+  },
+  {
+    "name": "BVox 1",
+    "path": "public/assets/tracks/whats/bvox_1.mp3",
+    "fallback": "public/assets/tracks/whats/bvox_1.ogg"
+  },
+  {
+    "name": "Clicks 'n' Vox Bits",
+    "path": "public/assets/tracks/whats/clicks_n_vox_bits.mp3",
+    "fallback": "public/assets/tracks/whats/clicks_n_vox_bits.ogg"
+  },
+  {
+    "name": "Guitar 1",
+    "path": "public/assets/tracks/whats/gtr_1.mp3",
+    "fallback": "public/assets/tracks/whats/gtr_1.ogg"
+  },
+  {
+    "name": "Guitar 2",
+    "path": "public/assets/tracks/whats/gtr_2.mp3",
+    "fallback": "public/assets/tracks/whats/gtr_2.ogg"
+  },
+  {
+    "name": "Kit 2",
+    "path": "public/assets/tracks/whats/kit_2.mp3",
+    "fallback": "public/assets/tracks/whats/kit_2.ogg"
+  },
+  {
+    "name": "Main Kit",
+    "path": "public/assets/tracks/whats/main_kit.mp3",
+    "fallback": "public/assets/tracks/whats/main_kit.ogg"
+  },
+  {
+    "name": "Main Vox 1",
+    "path": "public/assets/tracks/whats/main_vox_1.mp3",
+    "fallback": "public/assets/tracks/whats/main_vox_1.ogg"
+  },
+  {
+    "name": "Main Vox 2",
+    "path": "public/assets/tracks/whats/main_vox_2.mp3",
+    "fallback": "public/assets/tracks/whats/main_vox_2.ogg"
+  },
+  {
+    "name": "Percussion",
+    "path": "public/assets/tracks/whats/perc.mp3",
+    "fallback": "public/assets/tracks/whats/perc.ogg"
+  },
+  {
+    "name": "Piano",
+    "path": "public/assets/tracks/whats/piano.mp3",
+    "fallback": "public/assets/tracks/whats/piano.ogg"
+  },
+  {
+    "name": "Saxophone",
+    "path": "public/assets/tracks/whats/sax.mp3",
+    "fallback": "public/assets/tracks/whats/sax.ogg"
+  },
+  {
+    "name": "Strings 1 (Left)",
+    "path": "public/assets/tracks/whats/strings_1l.mp3",
+    "fallback": "public/assets/tracks/whats/strings_1l.ogg"
+  },
+  {
+    "name": "Strings 2 (Right)",
+    "path": "public/assets/tracks/whats/strings_2r.mp3",
+    "fallback": "public/assets/tracks/whats/strings_2r.ogg"
+  },
+  {
+    "name": "Strings 3 (Middle)",
+    "path": "public/assets/tracks/whats/strings_3m.mp3",
+    "fallback": "public/assets/tracks/whats/strings_3m.ogg"
+  },
+  {
+    "name": "Vibes",
+    "path": "public/assets/tracks/whats/vibes.mp3",
+    "fallback": "public/assets/tracks/whats/vibes.ogg"
+  }
+]

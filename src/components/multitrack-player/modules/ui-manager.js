@@ -40,14 +40,19 @@ export class UIManager {
 		const template = document.createElement("template");
 		template.innerHTML = `
       <style>
-        :host { display: block; font-family: system-ui, sans-serif; }
+        :host { display: block; font-family: system-ui, sans-serif; user-select: none; }
         .multitrack-player { display: block; }
         .loading-container { margin-bottom: 1rem; }
         .loading-container.hidden { display: none !important; }
         .loading-status { margin-bottom: 0.5rem; }
         .loading-bar { width: 100%; height: 4px; background: #ddd; }
         .loading-progress { height: 100%; width: 0; background: #000; transition: width 0.2s; }
-        .timeline-container { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; }
+        .timeline-container {
+            display: flex;
+            align-items-center;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
         .play-pause-button { width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid; background: none; }
         .play-pause-button.disabled { opacity: 0.5; cursor: not-allowed; }
         .play-pause-button .pause-icon { display: none; }

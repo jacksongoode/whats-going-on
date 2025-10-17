@@ -29,6 +29,11 @@ class MultitrackPlayer extends HTMLElement {
 		this.cacheName = "multitrack-audio-v1";
 		this.decodingStarted = false;
 		this.decodingPromise = null;
+		this.trackSets = {
+			"What's Going On?": "public/tracks-whats.json",
+			"I Want You": "public/tracks-want.json",
+		};
+		this.currentTrackSet = "What's Going On?";
 	}
 
 	async connectedCallback() {
@@ -38,6 +43,13 @@ class MultitrackPlayer extends HTMLElement {
 		this.uiManager.cacheElements(this.shadowRoot);
 		this.loadStylesheet();
 		this.setupUI();
+
+		this.titleElement = document.querySelector(".title");
+		this.garfieldIcon = document.querySelector(".garfield-icon");
+
+		if (this.garfieldIcon) {
+			this.garfieldIcon.addEventListener("click", this.swapTrackSet.bind(this));
+		}
 
 		if (this.hasAttribute("src")) {
 			requestAnimationFrame(() => {
@@ -115,8 +127,8 @@ class MultitrackPlayer extends HTMLElement {
 		}
 	}
 
-	async loadTracks() {
-		const src = this.getAttribute("src");
+	async loadTracks(autoDecode = false) {
+		const src = this.trackSets[this.currentTrackSet];
 		if (!src || this.loading) return;
 
 		this.loading = true;
@@ -169,32 +181,32 @@ class MultitrackPlayer extends HTMLElement {
 					this.state.isReady = true;
 					this.updateUI();
 
-					console.log(
-						`✓ All ${this.rawAudioData.length} tracks loaded. Click anywhere to start decoding.`,
-					);
+					if (autoDecode) {
+						this.uiManager.showSpinner();
+						this.decodeTracksInBackground();
+					} else {
+						const startDecode = (e) => {
+							if (!this.decodingPromise) {
+								this.uiManager.showSpinner();
+								this.decodeTracksInBackground();
+							}
+						};
 
-					const startDecode = (e) => {
+						this.shadowRoot.addEventListener("click", startDecode, {
+							once: true,
+							capture: true,
+						});
+						document.addEventListener("click", startDecode, {
+							once: true,
+							capture: true,
+						});
+
 						console.log(
-							"Click detected on:",
-							e.target.tagName || e.target.nodeName,
+							`✓ All ${
+								this.rawAudioData.length
+							} tracks loaded. Click anywhere to start decoding.`,
 						);
-						if (!this.decodingPromise) {
-							console.log("→ Starting background decode...");
-							this.uiManager.showSpinner();
-							this.decodeTracksInBackground();
-						} else {
-							console.log("→ Decode already in progress");
-						}
-					};
-
-					this.shadowRoot.addEventListener("click", startDecode, {
-						once: true,
-						capture: true,
-					});
-					document.addEventListener("click", startDecode, {
-						once: true,
-						capture: true,
-					});
+					}
 				}, 500);
 			} else {
 				this.updateUI();
@@ -327,6 +339,66 @@ class MultitrackPlayer extends HTMLElement {
 		this.uiManager.updateReverbUI(enabled);
 	}
 
+	_dismantleSources() {
+		this.audioNodes.forEach((node) => {
+			if (node?.source) {
+				try {
+					node.source.stop();
+					node.source.disconnect();
+				} catch (e) {
+					// Ignore errors if source is already stopped
+				}
+				node.source = null;
+			}
+		});
+	}
+
+	/// Swap the current track set with the next one.
+	async swapTrackSet() {
+		// Stop playback, set the player to "not ready" state.
+		this.stop();
+		this.state.isReady = false;
+		this.updateUI(); // This disable play button.
+
+		// Dismantle existing sources before clearing the audio nodes array.
+		this._dismantleSources();
+
+		// Fully clear out all old audio data.
+		this.loading = false;
+		this.audioNodes = [];
+		this.rawAudioData = [];
+		this.decodingPromise = null;
+		this.state.duration = 0;
+		this.uiManager.elements.tracksContainer.innerHTML = "";
+		this.uiManager.elements.tracksContainer.style.display = "none";
+
+		// Toggle to the next track set and update the UI.
+		this.currentTrackSet =
+			this.currentTrackSet === "What's Going On?"
+				? "I Want You"
+				: "What's Going On?";
+		if (this.titleElement) this.titleElement.textContent = this.currentTrackSet;
+		if (this.garfieldIcon) this.garfieldIcon.classList.toggle("flipped");
+
+		const descriptionEl = document.querySelector(".description");
+		if (descriptionEl) {
+			if (this.currentTrackSet === "I Want You") {
+				descriptionEl.innerHTML = `<iframe style="border-radius: 8px; border: none;" width="400" height="300" src="https://www.youtube.com/embed/hPEecWIAvao?controls=0" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+			} else {
+				descriptionEl.innerHTML = `Born from the police violence targeting student protesters
+                    at Berkeley, harrowing letters from Vietnam from his brother
+                    and Gaye's own personal grief in the wake of Tammi Terrell's
+                    death into a collective catharsis. Jazz-infused arrangements
+                    and layered vocals - recorded in a single midnight take -
+                    rejected Motown's apolitical formula, bringing soul music's
+                    first protest concept album with one enduring question.`;
+			}
+		}
+
+		// Load in the new tracks and then set isReady.
+		await this.loadTracks(true);
+	}
+
 	async play() {
 		if (!this.state.isReady || this.state.isPlaying) return;
 
@@ -366,12 +438,7 @@ class MultitrackPlayer extends HTMLElement {
 		const ctx = this.audioProcessor.audioContext;
 		this.state.currentTime = ctx.currentTime - this.state.startTime;
 
-		this.audioNodes.forEach((node) => {
-			if (node?.source) {
-				node.source.stop();
-				node.source = null;
-			}
-		});
+		this._dismantleSources();
 
 		this.state.isPlaying = false;
 		this.dispatchEvent(new CustomEvent("pause"));
@@ -381,12 +448,7 @@ class MultitrackPlayer extends HTMLElement {
 
 	stop() {
 		if (this.state.isPlaying) {
-			this.audioNodes.forEach((node) => {
-				if (node?.source) {
-					node.source.stop();
-					node.source = null;
-				}
-			});
+			this._dismantleSources();
 		}
 
 		this.state.isPlaying = false;

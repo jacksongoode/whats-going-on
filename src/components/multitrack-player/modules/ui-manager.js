@@ -374,7 +374,10 @@ export class UIManager {
 			const playIcon = this.elements.playButton.querySelector(".play-icon");
 			const pauseIcon = this.elements.playButton.querySelector(".pause-icon");
 
-			if (state.isPlaying) {
+			if (!state.isReady) {
+				if (playIcon) playIcon.style.display = "none";
+				if (pauseIcon) pauseIcon.style.display = "none";
+			} else if (state.isPlaying) {
 				if (playIcon) playIcon.style.display = "none";
 				if (pauseIcon) pauseIcon.style.display = "inline-block";
 			} else {

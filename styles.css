@@ -145,10 +145,10 @@ h6 {
 	overflow: hidden;
 	transform: translateY(-5px);
 	transition:
-		opacity 0.3s ease-out,
-		max-height 0.4s ease-out,
-		transform 0.3s ease-out,
-		margin 0.4s ease-out;
+		opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+		max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+		margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .title-container.active .description {

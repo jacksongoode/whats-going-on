@@ -383,7 +383,16 @@ class MultitrackPlayer extends HTMLElement {
 		const descriptionEl = document.querySelector(".description");
 		if (descriptionEl) {
 			if (this.currentTrackSet === "I Want You") {
-				descriptionEl.innerHTML = `<iframe style="border-radius: 8px; border: none;" width="400" height="300" src="https://www.youtube.com/embed/hPEecWIAvao?controls=0" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+				descriptionEl.innerHTML = `
+					<div style="width: 100%; max-width: 400px; margin: auto;">
+						<iframe
+							style="width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; border: 0;"
+							src="https://www.youtube.com/embed/hPEecWIAvao?controls=0"
+							title="YouTube video player"
+							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+							allowfullscreen>
+						</iframe>
+					</div>`;
 			} else {
 				descriptionEl.innerHTML = `Born from the police violence targeting student protesters
                     at Berkeley, harrowing letters from Vietnam from his brother

@@ -249,10 +249,11 @@ class MultitrackPlayer extends HTMLElement {
 			const tracks = await response.json();
 
 			await new Promise((resolve, reject) => {
-				this.audioWorker = new Worker(
-					new URL("./modules/audio-worker.js", import.meta.url),
-					{ type: "module" },
+				const workerUrl = new URL(
+					"./modules/audio-worker.js",
+					import.meta.url,
 				);
+				this.audioWorker = new Worker(workerUrl, { type: "module" });
 				const decodedPromises = [];
 
 				this.audioWorker.onmessage = (event) => {
@@ -318,7 +319,16 @@ class MultitrackPlayer extends HTMLElement {
 					reject(error);
 				};
 
-				this.audioWorker.postMessage({ tracks, cacheName: this.cacheName });
+				const baseUrl = new URL(
+					".",
+					new URL(trackSet.src, window.location.href),
+				).href;
+
+				this.audioWorker.postMessage({
+					tracks,
+					cacheName: this.cacheName,
+					baseUrl,
+				});
 			});
 		} catch (error) {
 			console.error("Track loading and decoding failed:", error);

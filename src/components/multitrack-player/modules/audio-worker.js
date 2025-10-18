@@ -1,5 +1,5 @@
 self.onmessage = async (event) => {
-	const { tracks, cacheName } = event.data;
+	const { tracks, cacheName, baseUrl } = event.data;
 
 	const _fetchAndCache = async (url) => {
 		const cache = await caches.open(cacheName);
@@ -17,7 +17,8 @@ self.onmessage = async (event) => {
 
 	tracks.forEach(async (track) => {
 		try {
-			const arrayBuffer = await _fetchAndCache(track.path);
+			const fullUrl = new URL(track.path, baseUrl).href;
+			const arrayBuffer = await _fetchAndCache(fullUrl);
 			self.postMessage(
 				{
 					type: "fetched",

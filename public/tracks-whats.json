@@ -1,112 +1,112 @@
 [
   {
-    "path": "/public/assets/tracks/whats/main_vox_2.mp3",
-    "fallback": "/public/assets/tracks/whats/main_vox_2.ogg",
+    "path": "assets/tracks/whats/main_vox_2.mp3",
+    "fallback": "assets/tracks/whats/main_vox_2.ogg",
     "name": "Lead Vocals",
     "gain": 1,
     "pan": 0
   },
   {
-    "path": "/public/assets/tracks/whats/main_vox_1.mp3",
-    "fallback": "/public/assets/tracks/whats/main_vox_1.ogg",
+    "path": "assets/tracks/whats/main_vox_1.mp3",
+    "fallback": "assets/tracks/whats/main_vox_1.ogg",
     "name": "Lead Vocals 2",
     "gain": 0.75,
     "pan": 0
   },
   {
-    "path": "/public/assets/tracks/whats/bvox_1.mp3",
-    "fallback": "/public/assets/tracks/whats/bvox_1.ogg",
+    "path": "assets/tracks/whats/bvox_1.mp3",
+    "fallback": "assets/tracks/whats/bvox_1.ogg",
     "name": "Background Vocals",
     "gain": 0.35,
     "pan": -0.2
   },
   {
-    "path": "/public/assets/tracks/whats/clicks_n_vox_bits.mp3",
-    "fallback": "/public/assets/tracks/whats/clicks_n_vox_bits.ogg",
+    "path": "assets/tracks/whats/clicks_n_vox_bits.mp3",
+    "fallback": "assets/tracks/whats/clicks_n_vox_bits.ogg",
     "name": "Snaps & Vocals",
     "gain": 0.4,
     "pan": -0.15
   },
   {
-    "path": "/public/assets/tracks/whats/bass.mp3",
-    "fallback": "/public/assets/tracks/whats/bass.ogg",
+    "path": "assets/tracks/whats/bass.mp3",
+    "fallback": "assets/tracks/whats/bass.ogg",
     "name": "Bass",
     "gain": 0.75,
     "pan": 0
   },
   {
-    "path": "/public/assets/tracks/whats/gtr_1.mp3",
-    "fallback": "/public/assets/tracks/whats/gtr_1.ogg",
+    "path": "assets/tracks/whats/gtr_1.mp3",
+    "fallback": "assets/tracks/whats/gtr_1.ogg",
     "name": "Guitar 1",
     "gain": 0.6,
     "pan": -0.35
   },
   {
-    "path": "/public/assets/tracks/whats/gtr_2.mp3",
-    "fallback": "/public/assets/tracks/whats/gtr_2.ogg",
+    "path": "assets/tracks/whats/gtr_2.mp3",
+    "fallback": "assets/tracks/whats/gtr_2.ogg",
     "name": "Guitar 2",
     "gain": 0.4,
     "pan": -0.5
   },
   {
-    "path": "/public/assets/tracks/whats/main_kit.mp3",
-    "fallback": "/public/assets/tracks/whats/main_kit.ogg",
+    "path": "assets/tracks/whats/main_kit.mp3",
+    "fallback": "assets/tracks/whats/main_kit.ogg",
     "name": "Drum Kit",
     "gain": 0.85,
     "pan": 0.1
   },
   {
-    "path": "/public/assets/tracks/whats/kit_2.mp3",
-    "fallback": "/public/assets/tracks/whats/kit_2.ogg",
+    "path": "assets/tracks/whats/kit_2.mp3",
+    "fallback": "assets/tracks/whats/kit_2.ogg",
     "name": "Conga",
     "gain": 0.3,
     "pan": 0.15
   },
   {
-    "path": "/public/assets/tracks/whats/perc.mp3",
-    "fallback": "/public/assets/tracks/whats/perc.ogg",
+    "path": "assets/tracks/whats/perc.mp3",
+    "fallback": "assets/tracks/whats/perc.ogg",
     "name": "Bongo",
     "gain": 0.6,
     "pan": -0.45
   },
   {
-    "path": "/public/assets/tracks/whats/piano.mp3",
-    "fallback": "/public/assets/tracks/whats/piano.ogg",
+    "path": "assets/tracks/whats/piano.mp3",
+    "fallback": "assets/tracks/whats/piano.ogg",
     "name": "Piano",
     "gain": 0.3,
     "pan": 0.1
   },
   {
-    "path": "/public/assets/tracks/whats/vibes.mp3",
-    "fallback": "/public/assets/tracks/whats/vibes.ogg",
+    "path": "assets/tracks/whats/vibes.mp3",
+    "fallback": "assets/tracks/whats/vibes.ogg",
     "name": "Vibraphone",
     "gain": 0.5,
     "pan": 0.75
   },
   {
-    "path": "/public/assets/tracks/whats/sax.mp3",
-    "fallback": "/public/assets/tracks/whats/sax.ogg",
+    "path": "assets/tracks/whats/sax.mp3",
+    "fallback": "assets/tracks/whats/sax.ogg",
     "name": "Saxophone",
     "gain": 0.55,
     "pan": -0.6
   },
   {
-    "path": "/public/assets/tracks/whats/strings_1l.mp3",
-    "fallback": "/public/assets/tracks/whats/strings_1l.ogg",
+    "path": "assets/tracks/whats/strings_1l.mp3",
+    "fallback": "assets/tracks/whats/strings_1l.ogg",
     "name": "Strings L",
     "gain": 0.3,
     "pan": -0.55
   },
   {
-    "path": "/public/assets/tracks/whats/strings_2r.mp3",
-    "fallback": "/public/assets/tracks/whats/strings_2r.ogg",
+    "path": "assets/tracks/whats/strings_2r.mp3",
+    "fallback": "assets/tracks/whats/strings_2r.ogg",
     "name": "Strings R",
     "gain": 0.3,
     "pan": 0.55
   },
   {
-    "path": "/public/assets/tracks/whats/strings_3m.mp3",
-    "fallback": "/public/assets/tracks/whats/strings_3m.ogg",
+    "path": "assets/tracks/whats/strings_3m.mp3",
+    "fallback": "assets/tracks/whats/strings_3m.ogg",
     "name": "Strings M",
     "gain": 0.3,
     "pan": 0

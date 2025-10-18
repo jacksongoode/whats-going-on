@@ -77,7 +77,7 @@ h6 {
 
 /* Main layout */
 .container {
-	max-width: 580px;
+	max-width: 480px;
 	margin: auto;
 	padding: 2rem;
 	height: 100vh;

@@ -16,6 +16,7 @@ class MultitrackPlayer extends HTMLElement {
 		this.state = {
 			isPlaying: false,
 			isReady: false,
+			isLoading: false,
 			currentTime: 0,
 			duration: 0,
 			startTime: 0,
@@ -26,12 +27,34 @@ class MultitrackPlayer extends HTMLElement {
 		this.playbackTimer = null;
 		this.initialized = false;
 		this.loading = false;
-		this.cacheName = "multitrack-audio-v1";
+		this.cacheName = "multitrack-audio-v2";
 		this.decodingStarted = false;
 		this.decodingPromise = null;
+		this.audioWorker = null;
+
 		this.trackSets = {
-			"What's Going On?": "public/tracks-whats.json",
-			"I Want You": "public/tracks-want.json",
+			"What's Going On?": {
+				src: "public/tracks-whats.json",
+				description: `Born from the police violence targeting student protesters
+                    at Berkeley, harrowing letters from Vietnam from his brother
+                    and Gaye's own personal grief in the wake of Tammi Terrell's
+                    death into a collective catharsis. Jazz-infused arrangements
+                    and layered vocals - recorded in a single midnight take -
+                    rejected Motown's apolitical formula, bringing soul music's
+                    first protest concept album with one enduring question.`,
+			},
+			"I Want You": {
+				src: "public/tracks-want.json",
+				description: `
+					<div style="width: 100%; max-width: 400px; margin: auto;">
+						<iframe
+							style="width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; border: 0;"
+							src="https://www.youtube.com/embed/hPEecWIAvao?controls=0"
+							title="YouTube video player"
+							allowfullscreen>
+						</iframe>
+					</div>`,
+			},
 		};
 		this.currentTrackSet = "What's Going On?";
 	}
@@ -51,11 +74,8 @@ class MultitrackPlayer extends HTMLElement {
 			this.garfieldIcon.addEventListener("click", this.swapTrackSet.bind(this));
 		}
 
-		if (this.hasAttribute("src")) {
-			requestAnimationFrame(() => {
-				this.loadTracks();
-			});
-		}
+		this.uiManager.showPlayerControls();
+		this.updateUI();
 	}
 
 	attributeChangedCallback(name, oldValue, newValue) {
@@ -127,178 +147,19 @@ class MultitrackPlayer extends HTMLElement {
 		}
 	}
 
-	async loadTracks(autoDecode = false) {
-		const src = this.trackSets[this.currentTrackSet];
-		if (!src || this.loading) return;
-
-		this.loading = true;
-		this.uiManager.updateLoadingUI(0, 1, "Initializing...");
-
-		try {
-			const response = await fetch(src);
-			const tracks = await response.json();
-
-			this.uiManager.updateLoadingUI(0, tracks.length, "Loading tracks...");
-
-			const nodes = [];
-			for (let i = 0; i < tracks.length; i++) {
-				try {
-					const track = tracks[i];
-
-					let arrayBuffer = await this.getCachedAudio(track.path);
-					const usedPath = track.path;
-
-					if (!arrayBuffer) {
-						console.log("Fetching from network:", track.name);
-						const response = await fetch(track.path);
-						this.cacheAudio(track.path, response.clone());
-						arrayBuffer = await response.arrayBuffer();
-					} else {
-						console.log("Cache hit:", track.name);
-					}
-
-					nodes.push({ arrayBuffer, config: { ...track, path: usedPath } });
-
-					this.uiManager.updateLoadingUI(i + 1, tracks.length);
-				} catch (error) {
-					console.error(`Error loading track ${i}:`, error);
-					nodes.push(null);
-				}
-			}
-
-			this.rawAudioData = nodes.filter((n) => n);
-
-			if (this.rawAudioData.length > 0) {
-				this.uiManager.updateLoadingUI(
-					nodes.length,
-					nodes.length,
-					"Ready to play",
-				);
-
-				setTimeout(() => {
-					this.uiManager.showPlayerControls();
-					this.uiManager.fadeOutLoading();
-					this.state.isReady = true;
-					this.updateUI();
-
-					if (autoDecode) {
-						this.uiManager.showSpinner();
-						this.decodeTracksInBackground();
-					} else {
-						const startDecode = (e) => {
-							if (!this.decodingPromise) {
-								this.uiManager.showSpinner();
-								this.decodeTracksInBackground();
-							}
-						};
-
-						this.shadowRoot.addEventListener("click", startDecode, {
-							once: true,
-							capture: true,
-						});
-						document.addEventListener("click", startDecode, {
-							once: true,
-							capture: true,
-						});
-
-						console.log(
-							`✓ All ${
-								this.rawAudioData.length
-							} tracks loaded. Click anywhere to start decoding.`,
-						);
-					}
-				}, 500);
-			} else {
-				this.updateUI();
-			}
-		} catch (error) {
-			console.error("Error loading tracks:", error);
-			this.uiManager.updateLoadingUI(0, 0, `Error: ${error.message}`);
-		} finally {
-			this.loading = false;
+	async _fetchAndCache(url) {
+		const cached = await this.getCachedAudio(url);
+		if (cached) {
+			console.log("Cache hit:", url);
+			return cached;
 		}
-	}
-
-	async decodeTracksInBackground() {
-		if (this.decodingPromise) return this.decodingPromise;
-		if (this.audioNodes.length > 0 || this.rawAudioData.length === 0) return;
-
-		this.decodingPromise = (async () => {
-			if (!this.initialized) {
-				try {
-					await this.initialize();
-				} catch (error) {
-					console.warn(
-						"Cannot decode yet, audio context needs user interaction",
-					);
-					this.decodingPromise = null;
-					return;
-				}
-			}
-
-			const total = this.rawAudioData.length;
-			const startTime = performance.now();
-
-			console.log(`🎵 Decoding ${total} tracks in parallel...`);
-
-			const decodePromises = this.rawAudioData.map(async (item) => {
-				let audioBuffer;
-
-				try {
-					audioBuffer = await this.audioProcessor.decodeAudioData(
-						item.arrayBuffer,
-					);
-				} catch (decodeError) {
-					if (item.config.fallback) {
-						try {
-							let fallbackBuffer = await this.getCachedAudio(
-								item.config.fallback,
-							);
-
-							if (!fallbackBuffer) {
-								const response = await fetch(item.config.fallback);
-								this.cacheAudio(item.config.fallback, response.clone());
-								fallbackBuffer = await response.arrayBuffer();
-							}
-
-							audioBuffer =
-								await this.audioProcessor.decodeAudioData(fallbackBuffer);
-						} catch (fallbackError) {
-							console.error(`Both formats failed for ${item.config.name}`);
-							return null;
-						}
-					} else {
-						return null;
-					}
-				}
-
-				return this.audioProcessor.createTrackNodes(audioBuffer, item.config);
-			});
-
-			this.audioNodes = await Promise.all(decodePromises);
-			this.state.duration =
-				this.audioNodes.find((n) => n)?.buffer.duration || 0;
-
-			const decodeTime = ((performance.now() - startTime) / 1000).toFixed(2);
-			const successful = this.audioNodes.filter((n) => n).length;
-			console.log(
-				`✓ Successfully decoded ${successful}/${total} tracks in ${decodeTime}s`,
-			);
-
-			this.uiManager.hideSpinner();
-
-			this.uiManager.createTrackUI(
-				this.audioNodes,
-				(index) => this.toggleSolo(index),
-				(index, type, value) => this.updateTrackControl(index, type, value),
-			);
-
-			this.dispatchEvent(
-				new CustomEvent("tracks-ready", { detail: { decodeTime } }),
-			);
-		})();
-
-		return this.decodingPromise;
+		console.log("Fetching from network:", url);
+		const response = await fetch(url);
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		this.cacheAudio(url, response.clone());
+		return response.arrayBuffer();
 	}
 
 	updateTrackControl(index, type, value) {
@@ -342,86 +203,161 @@ class MultitrackPlayer extends HTMLElement {
 	_dismantleSources() {
 		this.audioNodes.forEach((node) => {
 			if (node?.source) {
-				try {
-					node.source.stop();
-					node.source.disconnect();
-				} catch (e) {
-					// Ignore errors if source is already stopped
-				}
+				node.source.stop();
+				node.source.disconnect();
 				node.source = null;
 			}
 		});
 	}
 
 	/// Swap the current track set with the next one.
-	async swapTrackSet() {
-		// Stop playback, set the player to "not ready" state.
+	_setState(newState) {
+		Object.assign(this.state, newState);
+		this.updateUI();
+	}
+	_resetAudioState() {
+		if (this.audioWorker) {
+			this.audioWorker.terminate();
+			this.audioWorker = null;
+		}
 		this.stop();
-		this.state.isReady = false;
-		this.updateUI(); // This disable play button.
-
-		// Dismantle existing sources before clearing the audio nodes array.
 		this._dismantleSources();
-
-		// Fully clear out all old audio data.
-		this.loading = false;
 		this.audioNodes = [];
 		this.rawAudioData = [];
 		this.decodingPromise = null;
-		this.state.duration = 0;
+		this._setState({
+			isReady: false,
+			duration: 0,
+			currentTime: 0,
+		});
 		this.uiManager.elements.tracksContainer.innerHTML = "";
 		this.uiManager.elements.tracksContainer.style.display = "none";
+	}
+	async _loadAndDecodeTracks() {
+		if (this.state.isLoading) return;
+
+		this._setState({ isLoading: true });
+		this.updateUI();
+
+		try {
+			await this.initialize();
+
+			const trackSet = this.trackSets[this.currentTrackSet];
+			if (!trackSet) return;
+
+			const response = await fetch(trackSet.src);
+			const tracks = await response.json();
+
+			await new Promise((resolve, reject) => {
+				this.audioWorker = new Worker(
+					new URL("./modules/audio-worker.js", import.meta.url),
+					{ type: "module" },
+				);
+				const decodedPromises = [];
+
+				this.audioWorker.onmessage = (event) => {
+					const { type, arrayBuffer, config, message } = event.data;
+
+					if (type === "fetched") {
+						const promise = this.audioProcessor
+							.decodeAudioData(arrayBuffer)
+							.then((audioBuffer) => ({ audioBuffer, config }))
+							.catch((decodeError) => {
+								console.error(
+									`Failed to decode ${config.name} on main thread:`,
+									decodeError,
+								);
+								return null;
+							});
+						decodedPromises.push(promise);
+					} else if (type === "error") {
+						console.error(`Worker error for track ${config.name}: ${message}`);
+					}
+
+					if (decodedPromises.length === tracks.length) {
+						Promise.all(decodedPromises)
+							.then((decodedTracks) => {
+								const trackMap = new Map(
+									decodedTracks.filter(Boolean).map((t) => [t.config.path, t]),
+								);
+								const orderedTracks = tracks.map((track) =>
+									trackMap.get(track.path),
+								);
+								this.audioNodes = orderedTracks.filter(Boolean).map((item) => {
+									return this.audioProcessor.createTrackNodes(
+										item.audioBuffer,
+										item.config,
+									);
+								});
+
+								const duration =
+									this.audioNodes.find((n) => n)?.buffer.duration || 0;
+								this.uiManager.createTrackUI(
+									this.audioNodes,
+									(index) => this.toggleSolo(index),
+									(index, type, value) =>
+										this.updateTrackControl(index, type, value),
+								);
+
+								this.dispatchEvent(
+									new CustomEvent("tracks-ready", {
+										detail: { decodeTime: "worker" },
+									}),
+								);
+								this._setState({ isReady: true, duration });
+								this.audioWorker.terminate();
+								resolve();
+							})
+							.catch(reject);
+					}
+				};
+
+				this.audioWorker.onerror = (error) => {
+					console.error("An error occurred in the audio worker:", error);
+					this.audioWorker.terminate();
+					reject(error);
+				};
+
+				this.audioWorker.postMessage({ tracks, cacheName: this.cacheName });
+			});
+		} catch (error) {
+			console.error("Track loading and decoding failed:", error);
+			this._setState({ isReady: false });
+		} finally {
+			this._setState({ isLoading: false });
+		}
+	}
+	async swapTrackSet() {
+		this._resetAudioState();
+		this.updateUI();
 
 		// Toggle to the next track set and update the UI.
+		const trackSetKeys = Object.keys(this.trackSets);
+		const currentIndex = trackSetKeys.indexOf(this.currentTrackSet);
 		this.currentTrackSet =
-			this.currentTrackSet === "What's Going On?"
-				? "I Want You"
-				: "What's Going On?";
+			trackSetKeys[(currentIndex + 1) % trackSetKeys.length];
+
 		if (this.titleElement) this.titleElement.textContent = this.currentTrackSet;
 		if (this.garfieldIcon) this.garfieldIcon.classList.toggle("flipped");
 
 		const descriptionEl = document.querySelector(".description");
 		if (descriptionEl) {
-			if (this.currentTrackSet === "I Want You") {
-				descriptionEl.innerHTML = `
-					<div style="width: 100%; max-width: 400px; margin: auto;">
-						<iframe
-							style="width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; border: 0;"
-							src="https://www.youtube.com/embed/hPEecWIAvao?controls=0"
-							title="YouTube video player"
-							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-							allowfullscreen>
-						</iframe>
-					</div>`;
-			} else {
-				descriptionEl.innerHTML = `Born from the police violence targeting student protesters
-                    at Berkeley, harrowing letters from Vietnam from his brother
-                    and Gaye's own personal grief in the wake of Tammi Terrell's
-                    death into a collective catharsis. Jazz-infused arrangements
-                    and layered vocals - recorded in a single midnight take -
-                    rejected Motown's apolitical formula, bringing soul music's
-                    first protest concept album with one enduring question.`;
-			}
+			descriptionEl.innerHTML =
+				this.trackSets[this.currentTrackSet].description;
 		}
 
-		// Load in the new tracks and then set isReady.
-		await this.loadTracks(true);
+		await this._loadAndDecodeTracks();
 	}
-
 	async play() {
-		if (!this.state.isReady || this.state.isPlaying) return;
+		if (this.state.isPlaying || this.state.isLoading) return;
 
-		if (this.audioNodes.length === 0) {
-			this.uiManager.updateLoadingUI(0, 1, "Preparing audio...");
-			this.uiManager.elements.loading.classList.remove("hidden");
-			await this.decodeTracksInBackground();
-			this.uiManager.fadeOutLoading();
+		if (!this.state.isReady) {
+			await this._loadAndDecodeTracks();
 		}
 
-		if (!this.initialized) {
-			await this.initialize();
+		if (!this.state.isReady) {
+			return;
 		}
-
 		const ctx = this.audioProcessor.audioContext;
 		const startTime = ctx.currentTime - this.state.currentTime;
 
@@ -434,36 +370,29 @@ class MultitrackPlayer extends HTMLElement {
 			node.source.start(0, this.state.currentTime);
 		});
 
-		this.state.isPlaying = true;
-		this.state.startTime = startTime;
+		this._setState({ isPlaying: true, startTime });
 		this.dispatchEvent(new CustomEvent("play"));
-		this.updateUI();
 		this.startPlaybackTimer();
 	}
-
 	pause() {
 		if (!this.state.isPlaying) return;
 
 		const ctx = this.audioProcessor.audioContext;
-		this.state.currentTime = ctx.currentTime - this.state.startTime;
+		const currentTime = ctx.currentTime - this.state.startTime;
 
 		this._dismantleSources();
 
-		this.state.isPlaying = false;
+		this._setState({ isPlaying: false, currentTime });
 		this.dispatchEvent(new CustomEvent("pause"));
-		this.updateUI();
 		this.stopPlaybackTimer();
 	}
-
 	stop() {
 		if (this.state.isPlaying) {
 			this._dismantleSources();
 		}
 
-		this.state.isPlaying = false;
-		this.state.currentTime = 0;
+		this._setState({ isPlaying: false, currentTime: 0 });
 		this.dispatchEvent(new CustomEvent("pause"));
-		this.updateUI();
 		this.stopPlaybackTimer();
 	}
 

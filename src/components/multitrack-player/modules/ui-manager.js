@@ -1,16 +1,8 @@
-/**
- * UI Manager Module - Handles UI creation and interaction
- */
-
 export class UIManager {
 	constructor() {
 		this.elements = {};
 	}
 
-	/**
-	 * Cache DOM elements for quick access
-	 * @param {ShadowRoot} root - The shadow root container
-	 */
 	cacheElements(root) {
 		this.elements = {
 			playButton: root.querySelector(".play-pause-button"),
@@ -19,11 +11,8 @@ export class UIManager {
 			playhead: root.querySelector(".playhead"),
 			timeDisplay: root.querySelector(".current-time"),
 			duration: root.querySelector(".duration"),
-			loading: root.querySelector(".loading-container"),
 			tracksContainer: root.querySelector(".tracks-container"),
 			reverb: root.querySelector(".reverb-toggle"),
-			loadingProgress: root.querySelector(".loading-progress"),
-			loadingStatus: root.querySelector(".loading-status"),
 		};
 
 		// Initially hide the tracks container until tracks are loaded
@@ -32,10 +21,6 @@ export class UIManager {
 		}
 	}
 
-	/**
-	 * Create base template for the player
-	 * @returns {DocumentFragment} The template content
-	 */
 	createTemplate() {
 		const template = document.createElement("template");
 		template.innerHTML = `
@@ -80,12 +65,6 @@ export class UIManager {
       </style>
       <div class="multitrack-player">
         <div class="player-container">
-          <div class="loading-container">
-            <div class="loading-status">Loading...</div>
-            <div class="loading-bar">
-              <div class="loading-progress"></div>
-            </div>
-          </div>
           <div class="timeline-container">
             <button class="play-pause-button disabled" disabled>
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play play-icon">
@@ -128,48 +107,6 @@ export class UIManager {
 		return template.content.cloneNode(true);
 	}
 
-	/**
-	 * Update the loading UI
-	 * @param {number} loadedCount - Number of tracks loaded
-	 * @param {number} total - Total number of tracks
-	 * @param {string|null} message - An optional message to display instead of the default
-	 */
-	updateLoadingUI(loadedCount, total, message = null) {
-		if (this.elements.loadingStatus) {
-			if (message) {
-				this.elements.loadingStatus.textContent = message;
-			} else if (total > 0) {
-				this.elements.loadingStatus.textContent = `Loading tracks... ${loadedCount}/${total}`;
-			} else {
-				this.elements.loadingStatus.textContent = "Loading...";
-			}
-		}
-
-		const percent = total > 0 ? (loadedCount / total) * 100 : 0;
-		if (this.elements.loadingProgress) {
-			this.elements.loadingProgress.style.width = `${percent}%`;
-		}
-
-		if (loadedCount === total && total > 0) {
-			this.fadeOutLoading();
-		}
-	}
-
-	/**
-	 * Fade out and hide the loading UI
-	 */
-	fadeOutLoading() {
-		if (this.elements.loading) {
-			this.elements.loading.classList.add("hidden");
-		}
-	}
-
-	/**
-	 * Create the UI for all tracks
-	 * @param {Array} audioNodes - Array of audio node objects
-	 * @param {Function} onSoloToggle - Callback for when solo is toggled
-	 * @param {Function} onKnobChange - Callback for when a knob is adjusted
-	 */
 	createTrackUI(audioNodes, onSoloToggle, onKnobChange) {
 		if (!this.elements.tracksContainer || !audioNodes || !audioNodes.length)
 			return;
@@ -246,13 +183,6 @@ export class UIManager {
 		}
 	}
 
-	/**
-	 * Create a knob control
-	 * @param {string} type - Type of knob ('gain' or 'pan')
-	 * @param {number} initialValue - Initial value
-	 * @param {Function} onChange - Change handler
-	 * @returns {HTMLElement} The knob container element
-	 */
 	createKnob(type, initialValue, onChange) {
 		const container = document.createElement("div");
 		container.className = "knob-container";
@@ -339,12 +269,6 @@ export class UIManager {
 		return container;
 	}
 
-	/**
-	 * Convert value to angle for knob display
-	 * @param {number} value - The value to convert
-	 * @param {string} type - Type of knob ('gain' or 'pan')
-	 * @returns {number} Angle in degrees
-	 */
 	valueToAngle(value, type) {
 		if (type === "gain") {
 			// Map 0-1 to -135 to 135 degrees
@@ -369,25 +293,36 @@ export class UIManager {
 			: state.currentTime;
 
 		if (this.elements.playButton) {
+			this.elements.playButton.disabled = state.isLoading;
+			this.elements.playButton.classList.toggle("disabled", state.isLoading);
 			this.elements.playButton.classList.toggle("playing", state.isPlaying);
 
 			const playIcon = this.elements.playButton.querySelector(".play-icon");
 			const pauseIcon = this.elements.playButton.querySelector(".pause-icon");
+			const spinnerIcon =
+				this.elements.playButton.querySelector(".spinner-icon");
 
-			if (!state.isReady) {
-				if (playIcon) playIcon.style.display = "none";
-				if (pauseIcon) pauseIcon.style.display = "none";
+			if (playIcon) playIcon.style.display = "none";
+			if (pauseIcon) pauseIcon.style.display = "none";
+			if (spinnerIcon) {
+				spinnerIcon.style.display = "none";
+				spinnerIcon.style.animation = "";
+			}
+
+			if (state.isLoading) {
+				if (spinnerIcon) {
+					spinnerIcon.style.display = "inline-block";
+					spinnerIcon.style.animation = "spin 1s linear infinite";
+				}
 			} else if (state.isPlaying) {
-				if (playIcon) playIcon.style.display = "none";
 				if (pauseIcon) pauseIcon.style.display = "inline-block";
 			} else {
 				if (playIcon) playIcon.style.display = "inline-block";
-				if (pauseIcon) pauseIcon.style.display = "none";
 			}
 		}
 
 		if (this.elements.loading) {
-			this.elements.loading.style.display = state.isReady ? "none" : "block";
+			this.elements.loading.style.display = state.isLoading ? "block" : "none";
 		}
 
 		if (this.elements.timeDisplay) {
@@ -421,7 +356,6 @@ export class UIManager {
 	setupInitialUI(callbacks) {
 		if (this.elements.playButton) {
 			this.elements.playButton.addEventListener("click", () => {
-				if (!callbacks.isReady()) return;
 				if (callbacks.isPlaying()) {
 					callbacks.pause();
 				} else {
@@ -478,30 +412,18 @@ export class UIManager {
 		}
 	}
 
-	/**
-	 * Update the UI to reflect the state of reverb
-	 * @param {boolean} enabled - Whether reverb is enabled
-	 */
 	updateReverbUI(enabled) {
 		if (this.elements.reverb) {
 			this.elements.reverb.classList.toggle("active", enabled);
 		}
 	}
 
-	/**
-	 * Update the UI to reflect the selected reverb type - simplified
-	 * @param {string} type - Type of reverb
-	 */
 	updateReverbTypeUI(type) {
 		if (this.elements.reverb) {
 			this.elements.reverb.classList.toggle("active", type !== "none");
 		}
 	}
 
-	/**
-	 * Update the solo states in the UI
-	 * @param {Array} tracks - Array of track objects with isSolo property
-	 */
 	updateSoloUI(tracks) {
 		const trackElements = [
 			...this.elements.tracksContainer.querySelectorAll(".track"),
@@ -514,9 +436,6 @@ export class UIManager {
 		});
 	}
 
-	/**
-	 * Show the main player controls when the player is ready.
-	 */
 	showPlayerControls() {
 		const timelineContainer = this.elements.playButton?.closest(
 			".timeline-container",
@@ -528,34 +447,6 @@ export class UIManager {
 		if (this.elements.playButton) {
 			this.elements.playButton.disabled = false;
 			this.elements.playButton.classList.remove("disabled");
-		}
-	}
-
-	showSpinner() {
-		if (this.elements.playButton) {
-			const playIcon = this.elements.playButton.querySelector(".play-icon");
-			const pauseIcon = this.elements.playButton.querySelector(".pause-icon");
-			const spinner = this.elements.playButton.querySelector(".spinner-icon");
-
-			if (playIcon) playIcon.style.display = "none";
-			if (pauseIcon) pauseIcon.style.display = "none";
-			if (spinner) {
-				spinner.style.display = "inline-block";
-				spinner.style.animation = "spin 1s linear infinite";
-			}
-		}
-	}
-
-	hideSpinner() {
-		if (this.elements.playButton) {
-			const playIcon = this.elements.playButton.querySelector(".play-icon");
-			const spinner = this.elements.playButton.querySelector(".spinner-icon");
-
-			if (playIcon) playIcon.style.display = "inline-block";
-			if (spinner) {
-				spinner.style.display = "none";
-				spinner.style.animation = "";
-			}
 		}
 	}
 }

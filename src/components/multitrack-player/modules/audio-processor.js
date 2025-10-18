@@ -60,7 +60,7 @@ export class AudioProcessor {
 		const data = buffer.getChannelData(0);
 
 		for (let i = 0; i < data.length; i++) {
-			const decay = Math.pow(1 - i / data.length, 2);
+			const decay = (1 - i / data.length) ** 2;
 			data[i] = (Math.random() * 2 - 1) * decay;
 		}
 
@@ -92,10 +92,10 @@ export class AudioProcessor {
 
 	createTrackNodes(audioBuffer, config) {
 		const gainNode = this.audioContext.createGain();
-		gainNode.gain.value = config.gain;
+		gainNode.gain.value = config.gain ?? 1;
 
 		const panNode = this.audioContext.createStereoPanner();
-		panNode.pan.value = config.pan;
+		panNode.pan.value = config.pan ?? 0;
 
 		const dryGain = this.audioContext.createGain();
 		const wetGain = this.audioContext.createGain();
@@ -123,8 +123,8 @@ export class AudioProcessor {
 			dryGain,
 			wetGain,
 			convolver,
-			gain: config.gain,
-			pan: config.pan,
+			gain: config.gain ?? 1,
+			pan: config.pan ?? 0,
 			name: config.name,
 			path: config.path,
 			isSolo: false,

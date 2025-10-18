@@ -299,7 +299,7 @@
     padding: 0.65rem 0.75rem;
     margin-bottom: 0.35rem;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     transition: var(--transition-standard);
     border: none;

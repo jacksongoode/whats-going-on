@@ -91,6 +91,12 @@ h6 {
 	flex-direction: column;
 	align-items: center;
 	position: relative;
+	padding-bottom: 0;
+	transition: padding-bottom 0.3s ease-in-out;
+}
+
+.title-container.active {
+	padding-bottom: 1rem;
 }
 
 .title-row {
@@ -143,19 +149,12 @@ h6 {
 	opacity: 0;
 	max-height: 0;
 	overflow: hidden;
-	transform: translateY(-5px);
-	transition:
-		opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-		max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-		margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: opacity 0.3s ease-in-out, max-height 0.3s ease-in-out;
 }
 
 .title-container.active .description {
 	opacity: 1;
 	max-height: 400px;
-	transform: none;
-	margin: 1rem 0;
 }
 
 /* Wave animation for title */

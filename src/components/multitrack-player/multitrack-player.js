@@ -347,6 +347,9 @@ class MultitrackPlayer extends HTMLElement {
 		this._resetAudioState();
 		this.updateUI();
 
+		// Yield to the event loop to allow for garbage collection before loading new tracks
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
 		// Toggle to the next track set and update the UI.
 		const trackSetKeys = Object.keys(this.trackSets);
 		const currentIndex = trackSetKeys.indexOf(this.currentTrackSet);

@@ -32,12 +32,10 @@
                 <div class="description">
                     Born from police violence targeting student protesters at
                     Berkeley, his brother's harrowing letters from Vietnam, and
-                    Gaye's own grief in the wake of Tammi Terrell's death and
-                    brought into a collective catharsis. Jazz-infused
+                    Gaye's own grief in the wake of Tammi Terrell's death. Jazz
                     arrangements and layered vocals - recorded in a single
-                    midnight take - rejected Motown's apolitical formula,
-                    bringing soul music's first protest concept album with a
-                    single enduring question.
+                    midnight take - brought soul music's first protest concept
+                    album with a single enduring question.
                 </div>
             </div>
 
@@ -52,6 +50,9 @@
 
             document.addEventListener("DOMContentLoaded", () => {
                 const player = document.getElementById("player");
+                const title = document.querySelector(".title");
+                const garfieldIcon = document.querySelector(".garfield-icon");
+                const description = document.querySelector(".description");
 
                 document.addEventListener("keydown", (e) => {
                     if (e.code === "Space") {
@@ -60,7 +61,20 @@
                     }
                 });
 
-                const title = document.querySelector(".title");
+                if (garfieldIcon) {
+                    garfieldIcon.addEventListener("click", async () => {
+                        garfieldIcon.classList.add("switching");
+                        const newTrack = await player.swapTrackSet();
+                        if (newTrack) {
+                            // Update title via innerText to trigger the MutationObserver animation
+                            if (title) title.innerText = newTrack.name;
+                            if (description)
+                                description.innerHTML = newTrack.description;
+                            garfieldIcon.classList.toggle("flipped");
+                        }
+                        garfieldIcon.classList.remove("switching");
+                    });
+                }
 
                 if (title) {
                     const setAnimatedTitle = (element, text) => {

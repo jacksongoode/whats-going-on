@@ -4,6 +4,30 @@ export class AudioProcessor {
 		this.masterGain = null;
 		this.reverbBuffer = null;
 		this.reverbEnabled = true;
+		this.reverbNode = null;
+		this.reverbGain = null;
+	}
+
+	disposeTrack(node) {
+		if (!node) return;
+
+		if (node.source) {
+			try {
+				node.source.stop();
+			} catch (e) {}
+			node.source.disconnect();
+		}
+
+		if (node.gainNode) node.gainNode.disconnect();
+		if (node.panNode) node.panNode.disconnect();
+		if (node.reverbSend) node.reverbSend.disconnect();
+
+		// Help GC
+		node.buffer = null;
+		node.source = null;
+		node.gainNode = null;
+		node.panNode = null;
+		node.reverbSend = null;
 	}
 
 	async initializeContext() {
@@ -16,11 +40,18 @@ export class AudioProcessor {
 
 		this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
 			latencyHint: "interactive",
-			sampleRate: 44100,
 		});
 
 		this.masterGain = this.audioContext.createGain();
 		this.masterGain.connect(this.audioContext.destination);
+
+		// Initialize shared reverb bus
+		this.reverbNode = this.audioContext.createConvolver();
+		this.reverbGain = this.audioContext.createGain();
+		this.reverbGain.gain.value = this.reverbEnabled ? 0.3 : 0;
+
+		this.reverbNode.connect(this.reverbGain);
+		this.reverbGain.connect(this.masterGain);
 
 		this.loadReverbImpulse().catch((err) => {
 			console.warn("Failed to load reverb impulse:", err);
@@ -37,9 +68,15 @@ export class AudioProcessor {
 			const response = await fetch(url);
 			const arrayBuffer = await response.arrayBuffer();
 			this.reverbBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+			if (this.reverbNode) {
+				this.reverbNode.buffer = this.reverbBuffer;
+			}
 		} catch (error) {
 			console.warn("Failed to load reverb, using synthetic:", error);
 			this.reverbBuffer = await this.createSyntheticReverb();
+			if (this.reverbNode) {
+				this.reverbNode.buffer = this.reverbBuffer;
+			}
 		}
 	}
 
@@ -87,7 +124,67 @@ export class AudioProcessor {
 		if (!this.audioContext) {
 			await this.initializeContext();
 		}
-		return await this.audioContext.decodeAudioData(arrayBuffer);
+		let buffer = await this.audioContext.decodeAudioData(arrayBuffer);
+		buffer = this.optimizeBuffer(buffer);
+
+		// Mobile optimization: Downsample to save memory if on mobile
+		if (this.isMobile() && buffer.sampleRate > 24000) {
+			buffer = await this.downsampleBuffer(buffer, 22050);
+		}
+
+		return buffer;
+	}
+
+	isMobile() {
+		return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+			navigator.userAgent,
+		);
+	}
+
+	async downsampleBuffer(buffer, targetSampleRate) {
+		const offlineCtx = new OfflineAudioContext(
+			buffer.numberOfChannels,
+			Math.ceil(buffer.duration * targetSampleRate),
+			targetSampleRate,
+		);
+
+		const source = offlineCtx.createBufferSource();
+		source.buffer = buffer;
+		source.connect(offlineCtx.destination);
+		source.start(0);
+
+		console.log(`Downsampling track to ${targetSampleRate}Hz for mobile...`);
+		return await offlineCtx.startRendering();
+	}
+
+	optimizeBuffer(buffer) {
+		// If it's stereo but channels are identical, convert to mono to save 50% memory
+		if (buffer.numberOfChannels === 2) {
+			const left = buffer.getChannelData(0);
+			const right = buffer.getChannelData(1);
+			let isIdentical = true;
+
+			// Sample check (every 100th sample) for performance
+			const step = 100;
+			for (let i = 0; i < left.length; i += step) {
+				if (Math.abs(left[i] - right[i]) > 0.01) {
+					isIdentical = false;
+					break;
+				}
+			}
+
+			if (isIdentical) {
+				console.log("Optimizing stereo track to mono (identical channels)");
+				const monoBuffer = this.audioContext.createBuffer(
+					1,
+					buffer.length,
+					buffer.sampleRate,
+				);
+				monoBuffer.getChannelData(0).set(left);
+				return monoBuffer;
+			}
+		}
+		return buffer;
 	}
 
 	createTrackNodes(audioBuffer, config) {
@@ -97,32 +194,23 @@ export class AudioProcessor {
 		const panNode = this.audioContext.createStereoPanner();
 		panNode.pan.value = config.pan ?? 0;
 
-		const dryGain = this.audioContext.createGain();
-		const wetGain = this.audioContext.createGain();
-		const convolver = this.audioContext.createConvolver();
-
-		dryGain.gain.value = this.reverbEnabled ? 0.8 : 1;
-		wetGain.gain.value = this.reverbEnabled ? 0.2 : 0;
+		// Reverb send gain
+		const reverbSend = this.audioContext.createGain();
+		reverbSend.gain.value = 0.2; // Default send level
 
 		gainNode.connect(panNode);
-		panNode.connect(dryGain);
-		dryGain.connect(this.masterGain);
+		panNode.connect(this.masterGain);
 
-		if (this.reverbBuffer) {
-			convolver.buffer = this.reverbBuffer;
-			panNode.connect(convolver);
-			convolver.connect(wetGain);
-			wetGain.connect(this.masterGain);
-		}
+		// Connect to shared reverb bus
+		panNode.connect(reverbSend);
+		reverbSend.connect(this.reverbNode);
 
 		return {
 			buffer: audioBuffer,
 			source: null,
 			gainNode,
 			panNode,
-			dryGain,
-			wetGain,
-			convolver,
+			reverbSend,
 			gain: config.gain ?? 1,
 			pan: config.pan ?? 0,
 			name: config.name,
@@ -134,19 +222,14 @@ export class AudioProcessor {
 	toggleReverb(nodes) {
 		this.reverbEnabled = !this.reverbEnabled;
 
-		nodes.forEach((node) => {
-			if (!node) return;
-			node.dryGain.gain.value = this.reverbEnabled ? 0.8 : 1;
-			node.wetGain.gain.value = this.reverbEnabled ? 0.2 : 0;
-		});
+		if (this.reverbGain) {
+			this.reverbGain.gain.setTargetAtTime(
+				this.reverbEnabled ? 0.3 : 0,
+				this.audioContext.currentTime,
+				0.1,
+			);
+		}
 
 		return this.reverbEnabled;
-	}
-
-	formatTime(seconds) {
-		if (Number.isNaN(seconds)) return "0:00";
-		const min = Math.floor(seconds / 60);
-		const sec = Math.floor(seconds % 60);
-		return `${min}:${sec.toString().padStart(2, "0")}`;
 	}
 }

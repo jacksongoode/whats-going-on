@@ -44,8 +44,8 @@ export class UIManager {
         .play-pause-button.playing .play-icon { display: none; }
         .play-pause-button.playing .pause-icon { display: inline; }
         .timeline { position: relative; flex: 1; height: 6px; background: #ddd; cursor: pointer; }
-        .progress-bar { position: absolute; height: 100%; width: 0; background: #000; }
-        .playhead { position: absolute; top: 50%; left: 0; width: 12px; height: 12px; background: #000; border-radius: 50%; transform: translate(-50%, -50%); }
+        .progress-bar { position: absolute; height: 100%; width: 0; background: #000; transition: width 0.3s ease-out; }
+        .playhead { position: absolute; top: 50%; left: 0; width: 12px; height: 12px; background: #000; border-radius: 50%; transform: translate(-50%, -50%); transition: left 0.3s ease-out; }
         .time-display { min-width: 5rem; text-align: right; }
         .reverb-toggle { width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid; background: none; }
         .tracks-container { display: none; margin-top: 1rem; }
@@ -283,13 +283,13 @@ export class UIManager {
 	/**
 	 * Update the player UI with current state
 	 * @param {Object} state - Current player state
-	 * @param {Object} audioProcessor - Audio processor with formatTime method
+	 * @param {AudioContext} ctx - Audio context for current time calculation
 	 */
-	updatePlayerUI(state, audioProcessor) {
+	updatePlayerUI(state, ctx) {
 		if (!this.elements) return;
 
 		const currentTime = state.isPlaying
-			? (audioProcessor.audioContext?.currentTime || 0) - state.startTime
+			? (ctx?.currentTime || 0) - state.startTime
 			: state.currentTime;
 
 		if (this.elements.playButton) {
@@ -326,25 +326,28 @@ export class UIManager {
 		}
 
 		if (this.elements.timeDisplay) {
-			this.elements.timeDisplay.textContent =
-				audioProcessor.formatTime(currentTime);
+			this.elements.timeDisplay.textContent = this.formatTime(currentTime);
 		}
 
 		if (this.elements.duration && state.duration) {
-			this.elements.duration.textContent = audioProcessor.formatTime(
-				state.duration,
-			);
+			this.elements.duration.textContent = this.formatTime(state.duration);
 		}
 
-		if (state.duration > 0) {
-			const position = currentTime / state.duration;
+		if (state.duration > 0 || state.isLoading) {
+			const position = state.isLoading
+				? state.loadingProgress
+				: currentTime / state.duration;
 
 			if (this.elements.progress) {
 				this.elements.progress.style.width = `${position * 100}%`;
+				this.elements.progress.style.opacity = state.isLoading ? "0.3" : "1";
 			}
 
 			if (this.elements.playhead) {
 				this.elements.playhead.style.left = `${position * 100}%`;
+				this.elements.playhead.style.display = state.isLoading
+					? "none"
+					: "block";
 			}
 		}
 	}
@@ -448,5 +451,37 @@ export class UIManager {
 			this.elements.playButton.disabled = false;
 			this.elements.playButton.classList.remove("disabled");
 		}
+	}
+
+	resetUI() {
+		if (this.elements.progress) {
+			this.elements.progress.style.width = "0%";
+		}
+		if (this.elements.playhead) {
+			this.elements.playhead.style.left = "0%";
+		}
+		if (this.elements.timeDisplay) {
+			this.elements.timeDisplay.textContent = "0:00";
+		}
+		if (this.elements.duration) {
+			this.elements.duration.textContent = "0:00";
+		}
+		if (this.elements.tracksContainer) {
+			this.elements.tracksContainer.innerHTML = "";
+			this.elements.tracksContainer.style.display = "none";
+		}
+		const timelineContainer = this.elements.playButton?.closest(
+			".timeline-container",
+		);
+		if (timelineContainer) {
+			timelineContainer.classList.remove("tracks-loaded");
+		}
+	}
+
+	formatTime(seconds) {
+		if (Number.isNaN(seconds)) return "0:00";
+		const min = Math.floor(seconds / 60);
+		const sec = Math.floor(seconds % 60);
+		return `${min}:${sec.toString().padStart(2, "0")}`;
 	}
 }

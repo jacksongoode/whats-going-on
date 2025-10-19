@@ -247,97 +247,103 @@ class MultitrackPlayer extends HTMLElement {
 
 			const response = await fetch(trackSet.src);
 			const tracks = await response.json();
+			const baseUrl = new URL(".", new URL(trackSet.src, window.location.href))
+				.href;
 
-			await new Promise((resolve, reject) => {
-				const workerUrl = new URL(
-					"./modules/audio-worker.js",
-					import.meta.url,
-				);
-				this.audioWorker = new Worker(workerUrl, { type: "module" });
+			const workerUrl = new URL("./modules/audio-worker.js", import.meta.url);
+			this.audioWorker = new Worker(workerUrl, { type: "module" });
+
+			const allDecodedTracks = [];
+			const batchSize = 3;
+
+			for (let i = 0; i < tracks.length; i += batchSize) {
+				const batch = tracks.slice(i, i + batchSize);
 				const decodedPromises = [];
 
-				this.audioWorker.onmessage = (event) => {
-					const { type, arrayBuffer, config, message } = event.data;
+				await new Promise((resolve, reject) => {
+					this.audioWorker.onmessage = (event) => {
+						const { type, arrayBuffer, config, message } = event.data;
 
-					if (type === "fetched") {
-						const promise = this.audioProcessor
-							.decodeAudioData(arrayBuffer)
-							.then((audioBuffer) => ({ audioBuffer, config }))
-							.catch((decodeError) => {
-								console.error(
-									`Failed to decode ${config.name} on main thread:`,
-									decodeError,
-								);
-								return null;
-							});
-						decodedPromises.push(promise);
-					} else if (type === "error") {
-						console.error(`Worker error for track ${config.name}: ${message}`);
-					}
-
-					if (decodedPromises.length === tracks.length) {
-						Promise.all(decodedPromises)
-							.then((decodedTracks) => {
-								const trackMap = new Map(
-									decodedTracks.filter(Boolean).map((t) => [t.config.path, t]),
-								);
-								const orderedTracks = tracks.map((track) =>
-									trackMap.get(track.path),
-								);
-								this.audioNodes = orderedTracks.filter(Boolean).map((item) => {
-									return this.audioProcessor.createTrackNodes(
-										item.audioBuffer,
-										item.config,
+						if (type === "fetched") {
+							const promise = this.audioProcessor
+								.decodeAudioData(arrayBuffer)
+								.then((audioBuffer) => ({ audioBuffer, config }))
+								.catch((decodeError) => {
+									console.error(
+										`Failed to decode ${config.name} on main thread:`,
+										decodeError,
 									);
+									return null;
 								});
-
-								const duration =
-									this.audioNodes.find((n) => n)?.buffer.duration || 0;
-								this.uiManager.createTrackUI(
-									this.audioNodes,
-									(index) => this.toggleSolo(index),
-									(index, type, value) =>
-										this.updateTrackControl(index, type, value),
+							decodedPromises.push(promise);
+						} else if (type === "error") {
+							if (config) {
+								console.error(
+									`Worker error for track ${config.name}: ${message}`,
 								);
+							} else {
+								console.error(`Worker error: ${message}`);
+							}
+						}
 
-								this.dispatchEvent(
-									new CustomEvent("tracks-ready", {
-										detail: { decodeTime: "worker" },
-									}),
-								);
-								this._setState({ isReady: true, duration });
-								this.audioWorker.terminate();
+						if (decodedPromises.length === batch.length) {
+							Promise.all(decodedPromises).then((decodedTracks) => {
+								allDecodedTracks.push(...decodedTracks.filter(Boolean));
+								console.log(`Batch of ${batch.length} tracks decoded.`);
 								resolve();
-							})
-							.catch(reject);
-					}
-				};
+							});
+						}
+					};
 
-				this.audioWorker.onerror = (error) => {
-					console.error("An error occurred in the audio worker:", error);
-					this.audioWorker.terminate();
-					reject(error);
-				};
+					this.audioWorker.onerror = (error) => {
+						console.error("An error occurred in the audio worker:", error);
+						reject(error);
+					};
 
-				const baseUrl = new URL(
-					".",
-					new URL(trackSet.src, window.location.href),
-				).href;
-
-				this.audioWorker.postMessage({
-					tracks,
-					cacheName: this.cacheName,
-					baseUrl,
+					this.audioWorker.postMessage({
+						tracks: batch,
+						cacheName: this.cacheName,
+						baseUrl,
+					});
 				});
+			}
+
+			const trackMap = new Map(allDecodedTracks.map((t) => [t.config.path, t]));
+			const orderedTracks = tracks.map((track) => trackMap.get(track.path));
+
+			this.audioNodes = orderedTracks.filter(Boolean).map((item) => {
+				return this.audioProcessor.createTrackNodes(
+					item.audioBuffer,
+					item.config,
+				);
 			});
+
+			const duration = this.audioNodes.find((n) => n)?.buffer.duration || 0;
+			this.uiManager.createTrackUI(
+				this.audioNodes,
+				(index) => this.toggleSolo(index),
+				(index, type, value) => this.updateTrackControl(index, type, value),
+			);
+
+			this.dispatchEvent(
+				new CustomEvent("tracks-ready", {
+					detail: { decodeTime: "batched-worker" },
+				}),
+			);
+			this._setState({ isReady: true, duration });
 		} catch (error) {
 			console.error("Track loading and decoding failed:", error);
 			this._setState({ isReady: false });
 		} finally {
+			if (this.audioWorker) {
+				this.audioWorker.terminate();
+				this.audioWorker = null;
+			}
 			this._setState({ isLoading: false });
 		}
 	}
 	async swapTrackSet() {
+		const wasPlaying = this.state.isPlaying;
 		this._resetAudioState();
 		this.updateUI();
 
@@ -357,6 +363,10 @@ class MultitrackPlayer extends HTMLElement {
 		}
 
 		await this._loadAndDecodeTracks();
+
+		if (wasPlaying) {
+			this.play();
+		}
 	}
 	async play() {
 		if (this.state.isPlaying || this.state.isLoading) return;
@@ -381,7 +391,6 @@ class MultitrackPlayer extends HTMLElement {
 		});
 
 		this._setState({ isPlaying: true, startTime });
-		this.dispatchEvent(new CustomEvent("play"));
 		this.startPlaybackTimer();
 	}
 	pause() {
@@ -393,7 +402,6 @@ class MultitrackPlayer extends HTMLElement {
 		this._dismantleSources();
 
 		this._setState({ isPlaying: false, currentTime });
-		this.dispatchEvent(new CustomEvent("pause"));
 		this.stopPlaybackTimer();
 	}
 	stop() {
@@ -402,7 +410,6 @@ class MultitrackPlayer extends HTMLElement {
 		}
 
 		this._setState({ isPlaying: false, currentTime: 0 });
-		this.dispatchEvent(new CustomEvent("pause"));
 		this.stopPlaybackTimer();
 	}
 
@@ -464,6 +471,9 @@ class MultitrackPlayer extends HTMLElement {
 	}
 
 	updateUI() {
+		if (this.titleElement) {
+			this.titleElement.classList.toggle("playing", this.state.isPlaying);
+		}
 		this.uiManager.updatePlayerUI(this.state, this.audioProcessor);
 	}
 }

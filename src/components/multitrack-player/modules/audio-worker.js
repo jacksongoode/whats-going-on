@@ -15,25 +15,27 @@ self.onmessage = async (event) => {
 		return networkResponse.arrayBuffer();
 	};
 
-	tracks.forEach(async (track) => {
-		try {
-			const fullUrl = new URL(track.path, baseUrl).href;
-			const arrayBuffer = await _fetchAndCache(fullUrl);
-			self.postMessage(
-				{
-					type: "fetched",
+	if (tracks && tracks.length > 0) {
+		tracks.forEach(async (track) => {
+			try {
+				const fullUrl = new URL(track.path, baseUrl).href;
+				const arrayBuffer = await _fetchAndCache(fullUrl);
+				self.postMessage(
+					{
+						type: "fetched",
+						config: track,
+						arrayBuffer,
+					},
+					[arrayBuffer],
+				);
+			} catch (error) {
+				console.error(`Worker failed to fetch ${track.name}:`, error);
+				self.postMessage({
+					type: "error",
+					message: `Failed to fetch ${track.name}`,
 					config: track,
-					arrayBuffer,
-				},
-				[arrayBuffer],
-			);
-		} catch (error) {
-			console.error(`Worker failed to fetch ${track.name}:`, error);
-			self.postMessage({
-				type: "error",
-				message: `Failed to fetch ${track.name}`,
-				config: track,
-			});
-		}
-	});
+				});
+			}
+		});
+	}
 };

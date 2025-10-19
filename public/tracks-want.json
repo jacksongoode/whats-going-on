@@ -1,105 +1,90 @@
 [
   {
     "path": "assets/tracks/want/lead_1.ogg",
-    "fallback": "assets/tracks/want/lead_1.mp3",
     "name": "Lead Vocals",
     "gain": 0.65,
     "pan": 0
   },
   {
     "path": "assets/tracks/want/lead_2.ogg",
-    "fallback": "assets/tracks/want/lead_2.mp3",
     "name": "Lead Vocals 2",
     "gain": 0.3,
     "pan": 0
   },
   {
     "path": "assets/tracks/want/background_vocals_1.ogg",
-    "fallback": "assets/tracks/want/background_vocals_1.mp3",
     "name": "Background Vocals L",
     "gain": 0.3,
     "pan": -0.8
   },
   {
     "path": "assets/tracks/want/background_vocals_2.ogg",
-    "fallback": "assets/tracks/want/background_vocals_2.mp3",
     "name": "Background Vocals R",
     "gain": 0.3,
     "pan": 0.8
   },
   {
     "path": "assets/tracks/want/drums.ogg",
-    "fallback": "assets/tracks/want/drums.mp3",
     "name": "Drums",
     "gain": 0.6,
     "pan": 0
   },
   {
     "path": "assets/tracks/want/bass.ogg",
-    "fallback": "assets/tracks/want/bass.mp3",
     "name": "Bass",
     "gain": 0.6,
     "pan": 0
   },
   {
     "path": "assets/tracks/want/conga.ogg",
-    "fallback": "assets/tracks/want/conga.mp3",
     "name": "Conga",
     "gain": 0.4,
     "pan": 0.4
   },
   {
     "path": "assets/tracks/want/perc.ogg",
-    "fallback": "assets/tracks/want/perc.mp3",
     "name": "Percussion",
     "gain": 0.1,
     "pan": -0.3
   },
   {
     "path": "assets/tracks/want/foot.ogg",
-    "fallback": "assets/tracks/want/foot.mp3",
     "name": "Foot",
     "gain": 0.5,
     "pan": 0
   },
   {
     "path": "assets/tracks/want/piano.ogg",
-    "fallback": "assets/tracks/want/piano.mp3",
     "name": "Piano",
     "gain": 0.3,
     "pan": -0.4
   },
   {
     "path": "assets/tracks/want/rhodes.ogg",
-    "fallback": "assets/tracks/want/rhodes.mp3",
     "name": "Rhodes",
     "gain": 0.4,
     "pan": -0.35
   },
   {
     "path": "assets/tracks/want/guitar_1.ogg",
-    "fallback": "assets/tracks/want/guitar_1.mp3",
     "name": "Guitar 1",
     "gain": 0.4,
     "pan": 0.7
   },
   {
     "path": "assets/tracks/want/guitar_2.ogg",
-    "fallback": "assets/tracks/want/guitar_2.mp3",
     "name": "Guitar 2",
     "gain": 0.3,
     "pan": -0.65
   },
   {
     "path": "assets/tracks/want/strings.ogg",
-    "fallback": "assets/tracks/want/strings.mp3",
     "name": "Strings",
     "gain": 0.4,
     "pan": 0
   },
   {
     "path": "assets/tracks/want/horns.ogg",
-    "fallback": "assets/tracks/want/horns.mp3",
     "name": "Horns",
     "gain": 0.3,
     "pan": 0

@@ -216,42 +216,53 @@ class MultitrackPlayer extends HTMLElement {
 			const allDecodedTracks = [];
 			const totalTracks = tracks.length;
 			let completedCount = 0;
+			const MAX_CONCURRENT_DECODES = 4;
+			let activeDecodes = 0;
+			const decodeQueue = [];
 
 			await new Promise((resolve) => {
-				const decodePromises = [];
-
-				const checkComplete = async () => {
+				const checkComplete = () => {
 					if (completedCount >= totalTracks) {
-						await Promise.all(decodePromises);
 						resolve();
 					}
 				};
 
+				const startDecode = ({ arrayBuffer, config }) => {
+					activeDecodes++;
+					this.audioProcessor
+						.decodeAudioData(arrayBuffer)
+						.then((audioBuffer) => {
+							allDecodedTracks.push({ audioBuffer, config });
+						})
+						.catch((error) => {
+							console.error(`Failed to decode ${config.name}:`, error);
+						})
+						.finally(() => {
+							activeDecodes--;
+							completedCount++;
+							this._setState({
+								loadingProgress: completedCount / totalTracks,
+							});
+							// Pull next from queue if available
+							if (decodeQueue.length > 0) {
+								startDecode(decodeQueue.shift());
+							}
+							checkComplete();
+						});
+				};
+
 				const onMessage = (event) => {
-					const { type, arrayBuffer, config } = event.data;
+					const { type, arrayBuffer, config, message } = event.data;
 
 					if (type === "fetched") {
-						// Start decoding immediately as each track arrives.
-						// Multiple decodes run in parallel, not sequentially.
-						const decodePromise = this.audioProcessor
-							.decodeAudioData(arrayBuffer)
-							.then((audioBuffer) => {
-								allDecodedTracks.push({ audioBuffer, config });
-							})
-							.catch((error) => {
-								console.error(`Failed to decode ${config.name}:`, error);
-							})
-							.finally(() => {
-								completedCount++;
-								this._setState({
-									loadingProgress: completedCount / totalTracks,
-								});
-								checkComplete();
-							});
-
-						decodePromises.push(decodePromise);
+						const job = { arrayBuffer, config };
+						if (activeDecodes < MAX_CONCURRENT_DECODES) {
+							startDecode(job);
+						} else {
+							decodeQueue.push(job);
+						}
 					} else if (type === "error") {
-						console.error(event.data.message);
+						console.error(message);
 						completedCount++;
 						this._setState({
 							loadingProgress: completedCount / totalTracks,

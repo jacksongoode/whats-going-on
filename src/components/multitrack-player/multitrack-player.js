@@ -206,19 +206,62 @@ class MultitrackPlayer extends HTMLElement {
 				{ type: "module" },
 			);
 
+			// Fire off ALL fetches in parallel via the worker
+			this.audioWorker.postMessage({
+				tracks,
+				cacheName: this.cacheName,
+				baseUrl,
+			});
+
 			const allDecodedTracks = [];
-			let count = 0;
+			const totalTracks = tracks.length;
+			let completedCount = 0;
 
-			for (const track of tracks) {
-				const trackData = await this._processTrack(track, baseUrl);
-				if (trackData) allDecodedTracks.push(trackData);
+			await new Promise((resolve) => {
+				const decodePromises = [];
 
-				count++;
-				this._setState({ loadingProgress: count / tracks.length });
+				const checkComplete = async () => {
+					if (completedCount >= totalTracks) {
+						await Promise.all(decodePromises);
+						resolve();
+					}
+				};
 
-				// Yield for GC
-				await new Promise((r) => setTimeout(r, 0));
-			}
+				const onMessage = (event) => {
+					const { type, arrayBuffer, config } = event.data;
+
+					if (type === "fetched") {
+						// Start decoding immediately as each track arrives.
+						// Multiple decodes run in parallel, not sequentially.
+						const decodePromise = this.audioProcessor
+							.decodeAudioData(arrayBuffer)
+							.then((audioBuffer) => {
+								allDecodedTracks.push({ audioBuffer, config });
+							})
+							.catch((error) => {
+								console.error(`Failed to decode ${config.name}:`, error);
+							})
+							.finally(() => {
+								completedCount++;
+								this._setState({
+									loadingProgress: completedCount / totalTracks,
+								});
+								checkComplete();
+							});
+
+						decodePromises.push(decodePromise);
+					} else if (type === "error") {
+						console.error(event.data.message);
+						completedCount++;
+						this._setState({
+							loadingProgress: completedCount / totalTracks,
+						});
+						checkComplete();
+					}
+				};
+
+				this.audioWorker.addEventListener("message", onMessage);
+			});
 
 			const trackMap = new Map(allDecodedTracks.map((t) => [t.config.path, t]));
 			this.audioNodes = tracks
@@ -243,30 +286,6 @@ class MultitrackPlayer extends HTMLElement {
 			this.audioWorker = null;
 			this._setState({ isLoading: false });
 		}
-	}
-
-	async _processTrack(track, baseUrl) {
-		return new Promise((resolve) => {
-			const onMessage = async (event) => {
-				const { type, arrayBuffer, config } = event.data;
-				if (type === "fetched" && config.path === track.path) {
-					this.audioWorker.removeEventListener("message", onMessage);
-					try {
-						const audioBuffer =
-							await this.audioProcessor.decodeAudioData(arrayBuffer);
-						resolve({ audioBuffer, config });
-					} catch (e) {
-						resolve(null);
-					}
-				}
-			};
-			this.audioWorker.addEventListener("message", onMessage);
-			this.audioWorker.postMessage({
-				tracks: [track],
-				cacheName: this.cacheName,
-				baseUrl,
-			});
-		});
 	}
 
 	swapTrackSet() {

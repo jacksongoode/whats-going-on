@@ -258,6 +258,8 @@ class MultitrackPlayer extends HTMLElement {
 							this._setState({
 								loadingProgress: completedCount / totalTracks,
 							});
+							// Release compressed data reference to help GC on mobile
+							arrayBuffer = null;
 							// Pull next from queue if available
 							if (decodeQueue.length > 0) {
 								startDecode(decodeQueue.shift());
@@ -271,6 +273,9 @@ class MultitrackPlayer extends HTMLElement {
 
 					if (type === "fetched") {
 						const job = { arrayBuffer, config };
+						// Explicitly release the transferred ArrayBuffer reference
+						// to help GC reclaim the compressed audio data sooner on mobile
+						event.data.arrayBuffer = null;
 						if (activeDecodes < MAX_CONCURRENT_DECODES) {
 							startDecode(job);
 						} else {

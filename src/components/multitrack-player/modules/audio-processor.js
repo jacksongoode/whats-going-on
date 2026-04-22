@@ -14,7 +14,7 @@ export class AudioProcessor {
 		if (node.source) {
 			try {
 				node.source.stop();
-			} catch (e) {}
+			} catch {}
 			node.source.disconnect();
 		}
 

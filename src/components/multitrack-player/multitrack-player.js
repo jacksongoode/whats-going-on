@@ -163,7 +163,7 @@ class MultitrackPlayer extends HTMLElement {
 			if (node?.source) {
 				try {
 					node.source.stop();
-				} catch (e) {}
+				} catch {}
 				node.source.disconnect();
 				node.source = null;
 			}

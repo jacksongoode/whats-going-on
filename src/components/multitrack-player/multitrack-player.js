@@ -28,6 +28,7 @@ class MultitrackPlayer extends HTMLElement {
 		this.initialized = false;
 		this.cacheName = "multitrack-audio-v2";
 		this.audioWorker = null;
+		this._cachedTrackList = null;
 
 		this.trackSets = {
 			"What's Going On?": {
@@ -67,6 +68,19 @@ class MultitrackPlayer extends HTMLElement {
 		// Set initial player state to ready (but not loaded) so play button is enabled
 		this.uiManager.showPlayerControls();
 		this.updateUI();
+
+		// Eagerly fetch track metadata so it's ready before the user hits play
+		this._prefetchTrackMetadata();
+	}
+
+	async _prefetchTrackMetadata() {
+		try {
+			const trackSet = this.trackSets[this.currentTrackSet];
+			const response = await fetch(trackSet.src);
+			this._cachedTrackList = await response.json();
+		} catch (e) {
+			console.warn("Failed to prefetch track metadata:", e);
+		}
 	}
 
 	attributeChangedCallback(name, oldValue, newValue) {
@@ -94,7 +108,7 @@ class MultitrackPlayer extends HTMLElement {
 			pause: () => this.pause(),
 			stop: () => this.stop(),
 			seek: (position) => this.seek(position),
-			toggleReverb: () => this.toggleReverb(),
+			toggleReverb: async () => this.toggleReverb(),
 			isPlaying: () => this.state.isPlaying,
 			isReady: () => true, // Always return true so UI is interactive for lazy loading
 		});
@@ -139,8 +153,8 @@ class MultitrackPlayer extends HTMLElement {
 		});
 	}
 
-	toggleReverb() {
-		const enabled = this.audioProcessor.toggleReverb();
+	async toggleReverb() {
+		const enabled = await this.audioProcessor.toggleReverb();
 		this.uiManager.updateReverbUI(enabled);
 	}
 
@@ -196,8 +210,9 @@ class MultitrackPlayer extends HTMLElement {
 			await this.initialize();
 
 			const trackSet = this.trackSets[this.currentTrackSet];
-			const response = await fetch(trackSet.src);
-			const tracks = await response.json();
+			const tracks =
+				this._cachedTrackList ||
+				(await fetch(trackSet.src).then((r) => r.json()));
 			const baseUrl = new URL(".", new URL(trackSet.src, window.location.href))
 				.href;
 

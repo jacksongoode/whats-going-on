@@ -53,10 +53,6 @@ export class AudioProcessor {
 		this.reverbNode.connect(this.reverbGain);
 		this.reverbGain.connect(this.masterGain);
 
-		this.loadReverbImpulse().catch((err) => {
-			console.warn("Failed to load reverb impulse:", err);
-		});
-
 		return this.audioContext;
 	}
 
@@ -219,8 +215,13 @@ export class AudioProcessor {
 		};
 	}
 
-	toggleReverb(nodes) {
+	async toggleReverb() {
 		this.reverbEnabled = !this.reverbEnabled;
+
+		if (this.reverbEnabled && !this.reverbBuffer) {
+			// Lazy-load reverb impulse on first toggle
+			await this.loadReverbImpulse();
+		}
 
 		if (this.reverbGain) {
 			this.reverbGain.gain.setTargetAtTime(

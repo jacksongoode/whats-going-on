@@ -421,12 +421,6 @@ export class UIManager {
 		}
 	}
 
-	updateReverbTypeUI(type) {
-		if (this.elements.reverb) {
-			this.elements.reverb.classList.toggle("active", type !== "none");
-		}
-	}
-
 	updateSoloUI(tracks) {
 		const trackElements = [
 			...this.elements.tracksContainer.querySelectorAll(".track"),

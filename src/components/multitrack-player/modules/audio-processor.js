@@ -64,15 +64,12 @@ export class AudioProcessor {
 			const response = await fetch(url);
 			const arrayBuffer = await response.arrayBuffer();
 			this.reverbBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-			if (this.reverbNode) {
-				this.reverbNode.buffer = this.reverbBuffer;
-			}
-		} catch (error) {
-			console.warn("Failed to load reverb, using synthetic:", error);
+		} catch {
 			this.reverbBuffer = await this.createSyntheticReverb();
-			if (this.reverbNode) {
-				this.reverbNode.buffer = this.reverbBuffer;
-			}
+		}
+
+		if (this.reverbNode) {
+			this.reverbNode.buffer = this.reverbBuffer;
 		}
 	}
 
@@ -132,9 +129,7 @@ export class AudioProcessor {
 	}
 
 	isMobile() {
-		return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-			navigator.userAgent,
-		);
+		return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 	}
 
 	async downsampleBuffer(buffer, targetSampleRate) {

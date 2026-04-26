@@ -4,10 +4,10 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>What's Going On?</title>
-        <link rel="stylesheet" href="styles.css" />
+        <link rel="stylesheet" href="../styles.css" />
         <link
             rel="icon"
-            href="public/assets/img/garfield-bg.png"
+            href="../public/assets/img/garfield-bg.png"
             type="image/png"
         />
         <!-- Import Lucide icons globally -->
@@ -24,7 +24,7 @@
                 <div class="title-row">
                     <h1 class="title">What's Going On?</h1>
                     <img
-                        src="public/assets/img/garfield-bg.png"
+                        src="../public/assets/img/garfield-bg.png"
                         alt="Garfield"
                         class="garfield-icon"
                     />
@@ -41,12 +41,12 @@
 
             <multitrack-player
                 id="player"
-                stylesheet="dist/multitrack-player.themed.css"
+                stylesheet="../dist/multitrack-player.themed.css"
             ></multitrack-player>
         </div>
 
         <script type="module">
-            import "./src/components/multitrack-player/multitrack-player.js";
+            import "../src/components/multitrack-player/multitrack-player.js";
 
             document.addEventListener("DOMContentLoaded", () => {
                 const player = document.getElementById("player");
@@ -56,17 +56,17 @@
 
                 player.loadTrackSets({
                     "What's Going On?": {
-                        src: "public/tracks-whats.json",
+                        src: "../public/tracks-whats.json",
                         description: `Born from the police violence targeting student protesters
-                            at Berkeley, harrowing letters from Vietnam from his brother,
+                            at Berkeley, harrowing letters from Vietnam from his brother
                             and Gaye's own personal grief in the wake of Tammi Terrell's
-                            death, brought into a collective catharsis. Jazz-infused arrangements
+                            death into a collective catharsis. Jazz-infused arrangements
                             and layered vocals - recorded in a single midnight take -
                             rejected Motown's apolitical formula, bringing soul music's
                             first protest concept album with one enduring question.`,
                     },
                     "I Want You": {
-                        src: "public/tracks-want.json",
+                        src: "../public/tracks-want.json",
                         description: `
                             <div style="width: 100%; max-width: 400px; margin: auto;">
                                 <iframe

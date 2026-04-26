@@ -1,15 +1,34 @@
 {
   "name": "whats-going-on",
   "version": "1.0.0",
-  "description": "Multitrack player for Marvin Gaye's 'What's Going On'",
-  "main": "server.js",
+  "description": "Web Component multitrack audio player with per-track gain, pan, solo, and reverb",
   "type": "module",
+  "main": "src/components/multitrack-player/multitrack-player.js",
+  "exports": {
+    ".": "./src/components/multitrack-player/multitrack-player.js",
+    "./multitrack-player": "./src/components/multitrack-player/multitrack-player.js",
+    "./styles": "./dist/multitrack-player.css",
+    "./styles-themed": "./dist/multitrack-player.themed.css"
+  },
+  "files": [
+    "src/components/multitrack-player",
+    "dist"
+  ],
   "scripts": {
     "start": "bun server.js",
     "dev": "bun --watch server.js",
     "demo": "ENTRYPOINT=/index.html bun server.js",
-    "example": "ENTRYPOINT=/minimal.html bun server.js"
+    "example": "ENTRYPOINT=/examples/index.html bun server.js",
+    "lint": "oxlint src/components/multitrack-player"
   },
+  "keywords": [
+    "web-components",
+    "audio",
+    "multitrack",
+    "player",
+    "web-audio-api",
+    "stems"
+  ],
   "dependencies": {
     "lucide": "^0.546.0"
   },
